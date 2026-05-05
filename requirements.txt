@@ -1,0 +1,15 @@
+flask==3.0.3
+flask-cors==4.0.1
+pydantic-settings==2.2.1
+supabase==2.5.0
+scikit-learn==1.5.1
+pandas==2.2.2
+numpy==1.26.4
+joblib==1.4.2
+huggingface-hub==0.23.4
+google-generativeai==0.7.2
+twilio==9.2.3
+python-telegram-bot==21.3
+gunicorn==22.0.0
+python-dotenv==1.0.1
+pytest==8.2.2
