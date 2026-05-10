@@ -27,7 +27,22 @@ PERFIL DEL ESTUDIANTE:
 {profile}
 
 MEMORIA DE CONVERSACIONES ANTERIORES:
-{long_term_memory}"""
+{long_term_memory}
+
+FORMATO DE RESPUESTA INTERNO (solo para el sistema, no lo muestres al usuario):
+
+Cuando te falte información, responde EXACTAMENTE así:
+{{"action": "collecting", "reply": "<tu mensaje conversacional aquí>"}}
+
+Cuando tengas materia + dificultad + horas_estimadas + días_disponibles, responde EXACTAMENTE así:
+{{"action": "generate_plan", "tasks": [{{"subject": "...", "difficulty": N, "estimated_hours": N.N, "days_available": N}}]}}
+
+IMPORTANTE:
+- Responde SIEMPRE con JSON válido, sin texto adicional, sin markdown, sin backticks.
+- "reply" debe estar en español, ser empático y natural.
+- Si el estudiante menciona una fecha (ej: "el viernes"), calcula days_available desde hoy.
+- Si no menciona dificultad, pregunta UNA sola cosa a la vez.
+- Nunca asumas dificultad sin preguntar."""
 
 ROLE_MAP = {"user": "user", "model": "model"}
 
@@ -35,12 +50,12 @@ ROLE_MAP = {"user": "user", "model": "model"}
 class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str):
         genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel("gemini-1.5-flash")
-        self._embedding_model = "models/embedding-001"
+        self._model = genai.GenerativeModel("gemini-2.5-flash")
+        self._embedding_model = "models/text-embedding-004"
 
     def chat(self, messages: list[dict], system_prompt: str, temperature: float = 0.3) -> str:
         model = genai.GenerativeModel(
-            "gemini-1.5-flash",
+            "gemini-2.5-flash",
             system_instruction=system_prompt,
         )
         history = [
