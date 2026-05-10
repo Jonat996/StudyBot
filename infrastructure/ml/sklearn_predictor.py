@@ -1,8 +1,10 @@
+import os
 import numpy as np
 import joblib
-from huggingface_hub import hf_hub_download
 from core.entities.task import Task
 from core.interfaces.ml_predictor import MLPredictor
+
+_MODELS_DIR = os.path.join(os.path.dirname(__file__), "..", "..")
 
 PRIORITY_LABELS = ["Baja", "Media", "Alta", "Maxima"]
 MODEL_METRICS = {
@@ -53,16 +55,10 @@ class SklearnPredictor(MLPredictor):
 
     def _load_models(self) -> None:
         if not self._regressor:
-            path = hf_hub_download(
-                repo_id=self._settings.hf_repo_id,
-                filename=self._settings.regression_model_file,
-            )
+            path = os.path.join(_MODELS_DIR, self._settings.regression_model_file)
             self._regressor = joblib.load(path)
         if not self._classifier:
-            path = hf_hub_download(
-                repo_id=self._settings.hf_repo_id,
-                filename=self._settings.classifier_model_file,
-            )
+            path = os.path.join(_MODELS_DIR, self._settings.classifier_model_file)
             self._classifier = joblib.load(path)
 
     def _extract_features(self, task: Task) -> list:
