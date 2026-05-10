@@ -1,9 +1,12 @@
+import urllib.parse
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
+_AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
+_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
 def _client_config(settings) -> dict:
@@ -12,21 +15,23 @@ def _client_config(settings) -> dict:
             "client_id": settings.google_client_id,
             "client_secret": settings.google_client_secret,
             "redirect_uris": [settings.google_redirect_uri],
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_uri": _AUTH_URI,
+            "token_uri": _TOKEN_URI,
         }
     }
 
 
 def get_auth_url(settings, student_id: str) -> str:
-    flow = Flow.from_client_config(_client_config(settings), scopes=SCOPES)
-    flow.redirect_uri = settings.google_redirect_uri
-    auth_url, _ = flow.authorization_url(
-        access_type='offline',
-        state=student_id,
-        prompt='consent',
-    )
-    return auth_url
+    params = {
+        "client_id": settings.google_client_id,
+        "redirect_uri": settings.google_redirect_uri,
+        "response_type": "code",
+        "scope": " ".join(SCOPES),
+        "access_type": "offline",
+        "state": student_id,
+        "prompt": "consent",
+    }
+    return _AUTH_URI + "?" + urllib.parse.urlencode(params)
 
 
 def exchange_code(settings, code: str) -> dict:
