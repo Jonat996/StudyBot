@@ -1,5 +1,6 @@
 import json
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 from core.interfaces.llm_provider import LLMProvider
 
 STUDYBOT_SYSTEM_PROMPT = """Eres StudyBot, un asistente academico inteligente. Tu trabajo es ayudar a estudiantes universitarios a organizar su semana de estudio de forma optima.
@@ -44,29 +45,30 @@ IMPORTANTE:
 - Si no menciona dificultad, pregunta UNA sola cosa a la vez.
 - Nunca asumas dificultad sin preguntar."""
 
-ROLE_MAP = {"user": "user", "model": "model"}
+MODEL = "gemini-2.5-flash-preview-04-17"
 
 
 class GeminiProvider(LLMProvider):
     def __init__(self, api_key: str):
-        genai.configure(api_key=api_key)
-        self._model = genai.GenerativeModel("gemini-2.5-flash")
-        self._embedding_model = "models/text-embedding-004"
+        self._client = genai.Client(api_key=api_key)
 
     def chat(self, messages: list[dict], system_prompt: str, temperature: float = 0.3) -> str:
-        model = genai.GenerativeModel(
-            "gemini-2.5-flash",
-            system_instruction=system_prompt,
-        )
         history = [
-            {"role": ROLE_MAP.get(m["role"], "user"), "parts": [m["content"]]}
+            types.Content(
+                role=m["role"] if m["role"] in ("user", "model") else "user",
+                parts=[types.Part(text=m["content"])]
+            )
             for m in messages[:-1]
         ]
         last_message = messages[-1]["content"]
-        chat = model.start_chat(history=history)
-        response = chat.send_message(
-            last_message,
-            generation_config=genai.GenerationConfig(temperature=temperature),
+
+        response = self._client.models.generate_content(
+            model=MODEL,
+            contents=history + [types.Content(role="user", parts=[types.Part(text=last_message)])],
+            config=types.GenerateContentConfig(
+                system_instruction=system_prompt,
+                temperature=temperature,
+            ),
         )
         return response.text
 
@@ -77,7 +79,7 @@ class GeminiProvider(LLMProvider):
             f"Responde SOLO con un JSON valido con estas claves: {schema_str}\n"
             f"Si una entidad no esta presente, usa null.\n\nTexto: {text}"
         )
-        response = self._model.generate_content(prompt)
+        response = self._client.models.generate_content(model=MODEL, contents=prompt)
         try:
             raw = response.text
             start = raw.find("{")
@@ -93,13 +95,12 @@ class GeminiProvider(LLMProvider):
             "los datos importantes del estudiante: materias, fechas, disponibilidad, "
             "dificultades y compromisos mencionados.\n\n" + conversation
         )
-        response = self._model.generate_content(prompt)
+        response = self._client.models.generate_content(model=MODEL, contents=prompt)
         return response.text
 
     def generate_embedding(self, text: str) -> list[float]:
-        result = genai.embed_content(
-            model=self._embedding_model,
-            content=text,
-            task_type="retrieval_document",
+        response = self._client.models.embed_content(
+            model="text-embedding-004",
+            contents=text,
         )
-        return result["embedding"]
+        return response.embeddings[0].values

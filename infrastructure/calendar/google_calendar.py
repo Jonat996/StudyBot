@@ -23,7 +23,6 @@ def get_auth_url(settings, student_id: str) -> str:
     flow.redirect_uri = settings.google_redirect_uri
     auth_url, _ = flow.authorization_url(
         access_type='offline',
-        response_type='code',
         state=student_id,
         prompt='consent',
     )
