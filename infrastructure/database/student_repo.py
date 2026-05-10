@@ -35,6 +35,24 @@ class SupabaseStudentRepository(StudentRepository):
         self._db.table(self.TABLE).update({"profile": merged_profile}).eq("id", student_id).execute()
         return True
 
+    def get_all_active(self) -> list:
+        result = self._db.table(self.TABLE)\
+            .select("id, name, phone, channel, personal_factor, profile")\
+            .execute()
+        return [self._to_entity(r) for r in result.data]
+
+    def update_long_term_memory(self, student_id: str, summary: str) -> None:
+        student = self.find_by_id(student_id)
+        if not student:
+            return
+        profile = student.profile or {}
+        existing = profile.get("long_term_memory", "")
+        updated = f"{existing}\n{summary}".strip()
+        self._db.table(self.TABLE)\
+            .update({"profile": {**profile, "long_term_memory": updated}})\
+            .eq("id", student_id)\
+            .execute()
+
     def _to_entity(self, row: dict) -> Student:
         return Student(
             id=row["id"],

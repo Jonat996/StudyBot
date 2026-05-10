@@ -53,6 +53,11 @@ class SupabaseMessageRepository(MessageRepository):
             self._db.table(self.TABLE).delete().in_("id", ids).execute()
         return True
 
+    def delete_old_messages(self, student_id: str, messages: list) -> None:
+        ids = [m.id for m in messages if m.id]
+        if ids:
+            self._db.table(self.TABLE).delete().in_("id", ids).execute()
+
     def _to_entity(self, row: dict) -> Message:
         return Message(
             id=row["id"],

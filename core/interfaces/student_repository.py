@@ -19,3 +19,11 @@ class StudentRepository(ABC):
     @abstractmethod
     def update_profile(self, student_id: str, updates: dict) -> bool:
         """Merges updates into the student's profile JSONB field."""
+
+    @abstractmethod
+    def get_all_active(self) -> list:
+        """Returns all students who have at least one schedule."""
+
+    @abstractmethod
+    def update_long_term_memory(self, student_id: str, summary: str) -> None:
+        """Appends a compressed summary to the student's long-term memory in profile."""

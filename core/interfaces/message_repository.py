@@ -18,3 +18,7 @@ class MessageRepository(ABC):
     @abstractmethod
     def delete_oldest(self, student_id: str, count: int) -> bool:
         """Deletes the oldest N messages for a student."""
+
+    @abstractmethod
+    def delete_old_messages(self, student_id: str, messages: list) -> None:
+        """Deletes a specific set of messages (used during history compression)."""
