@@ -8,6 +8,7 @@ from api.routes.chat import chat_bp
 from api.routes.messaging import messaging_bp
 from api.routes.students import students_bp
 from api.routes.reminders import bp_reminders
+from api.routes.calendar import bp_calendar
 from api.middleware.error_handler import register_error_handlers
 
 
@@ -24,6 +25,7 @@ def create_app() -> Flask:
     app.register_blueprint(messaging_bp)
     app.register_blueprint(students_bp)
     app.register_blueprint(bp_reminders)
+    app.register_blueprint(bp_calendar)
 
     register_error_handlers(app)
 
