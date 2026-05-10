@@ -5,6 +5,7 @@ from core.interfaces.ml_predictor import MLPredictor
 from core.interfaces.vector_store import VectorStore
 from core.interfaces.student_repository import StudentRepository
 from core.interfaces.message_repository import MessageRepository
+from core.interfaces.schedule_repository import ScheduleRepository
 from core.use_cases.generate_plan import GeneratePlan
 from core.use_cases.manage_profile import ManageProfile
 from core.use_cases.process_message import ProcessMessage
@@ -19,6 +20,7 @@ class Container:
         self._vector_store: VectorStore = None
         self._student_repo: StudentRepository = None
         self._message_repo: MessageRepository = None
+        self._schedule_repo: ScheduleRepository = None
 
     def llm(self) -> LLMProvider:
         if not self._llm:
@@ -72,6 +74,12 @@ class Container:
             from infrastructure.database.message_repo import SupabaseMessageRepository
             self._message_repo = SupabaseMessageRepository(self._settings)
         return self._message_repo
+
+    def schedule_repository(self) -> ScheduleRepository:
+        if not self._schedule_repo:
+            from infrastructure.database.schedule_repo import SupabaseScheduleRepository
+            self._schedule_repo = SupabaseScheduleRepository(self._settings)
+        return self._schedule_repo
 
     def generate_plan_use_case(self) -> GeneratePlan:
         return GeneratePlan(
