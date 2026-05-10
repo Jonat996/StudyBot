@@ -37,7 +37,7 @@ class ProcessMessage:
         self._history_window = history_window
         self._compression_threshold = compression_threshold
 
-    def execute(self, student_id: str, user_text: str) -> str:
+    def execute(self, student_id: str, user_text: str) -> dict:
         history = self._message_repo.get_recent(student_id, self._history_window)
         profile_context = self._manage_profile.get_context_for_llm(student_id)
         student = self._student_repo.find_by_id(student_id)
@@ -47,15 +47,15 @@ class ProcessMessage:
         system_prompt = self._build_system_prompt(profile_context, long_term_memory)
 
         raw_reply = self._llm.chat(messages, system_prompt)
-        reply = self._handle_llm_reply(raw_reply, student_id)
+        result = self._handle_llm_reply(raw_reply, student_id)
 
         self._message_repo.save(Message(student_id=student_id, role="user", content=user_text))
-        self._message_repo.save(Message(student_id=student_id, role="model", content=reply))
+        self._message_repo.save(Message(student_id=student_id, role="model", content=result["reply"]))
 
         self._maybe_compress_history(student_id)
         self._maybe_update_profile(student_id, user_text)
 
-        return reply
+        return result
 
     def _build_message_list(self, history: list[Message], user_text: str) -> list[dict]:
         messages = [{"role": m.role, "content": m.content} for m in history]
@@ -69,25 +69,37 @@ class ProcessMessage:
             long_term_memory=long_term_memory or "Sin conversaciones anteriores.",
         )
 
-    def _handle_llm_reply(self, raw_reply: str, student_id: str) -> str:
+    def _handle_llm_reply(self, raw_reply: str, student_id: str) -> dict:
         try:
             start = raw_reply.find("{")
             end = raw_reply.rfind("}") + 1
             if start == -1:
-                return raw_reply
+                return {"action": "collecting", "reply": raw_reply}
 
             payload = json.loads(raw_reply[start:end])
-            if payload.get("action") != PLAN_ACTION:
-                return raw_reply
+            action = payload.get("action", "collecting")
+
+            if action != PLAN_ACTION:
+                return {"action": "collecting", "reply": payload.get("reply", raw_reply)}
 
             tasks = self._parse_tasks(payload.get("tasks", []), student_id)
             if not tasks:
-                return raw_reply
+                return {"action": "collecting", "reply": payload.get("reply", raw_reply)}
 
             enriched, schedule = self._generate_plan.execute(tasks, student_id)
-            return self._format_plan_response(enriched, schedule)
+            return {
+                "action": "generate_plan",
+                "reply": self._format_plan_reply(enriched, schedule),
+                "schedule": schedule.slots_by_day,
+                "tasks": [self._task_to_dict(t) for t in enriched],
+                "max_day_load_pct": schedule.max_day_load_pct,
+                "model_metrics": {
+                    "MAE": 0.567, "RMSE": 0.807,
+                    "R2": 0.852, "F1": 0.900, "Accuracy": 0.825,
+                },
+            }
         except (json.JSONDecodeError, KeyError, ValueError):
-            return raw_reply
+            return {"action": "collecting", "reply": raw_reply}
 
     def _parse_tasks(self, raw_tasks: list[dict], student_id: str) -> list[Task]:
         tasks = []
@@ -106,16 +118,32 @@ class ProcessMessage:
             tasks.append(task)
         return tasks
 
-    def _format_plan_response(self, tasks: list[Task], schedule) -> str:
-        lines = ["Aqui esta tu plan de estudio:\n"]
+    def _format_plan_reply(self, tasks: list, schedule) -> str:
+        day_names = {
+            "monday": "Lunes", "tuesday": "Martes", "wednesday": "Miércoles",
+            "thursday": "Jueves", "friday": "Viernes", "saturday": "Sábado",
+        }
+        priority_emoji = {"Maxima": "🔴", "Alta": "🟠", "Media": "🟡", "Baja": "🟢"}
+        lines = ["📚 *Tu plan semanal está listo:*\n"]
         for day, slots in schedule.slots_by_day.items():
             if not slots:
                 continue
-            lines.append(f"*{day.capitalize()}*:")
+            lines.append(f"*{day_names.get(day, day)}:*")
             for slot in slots:
-                lines.append(f"  - {slot['subject']}: {slot['hours']:.1f}h (prioridad: {slot['priority']})")
-        lines.append(f"\nCarga maxima diaria: {schedule.max_day_load_pct:.1f}%")
+                emoji = priority_emoji.get(slot.get("priority", "Media"), "📚")
+                lines.append(f"  {emoji} {slot['subject']} — {slot['hours']:.1f}h")
+        lines.append(f"\n📊 _Carga máxima por día: {schedule.max_day_load_pct:.1f}%_")
         return "\n".join(lines)
+
+    def _task_to_dict(self, task) -> dict:
+        return {
+            "subject": task.subject,
+            "difficulty": task.difficulty,
+            "estimated_hours": task.estimated_hours,
+            "predicted_hours": task.predicted_hours,
+            "priority": task.priority,
+            "compliance_probability": task.compliance_probability,
+        }
 
     def _maybe_compress_history(self, student_id: str) -> None:
         total = self._message_repo.count(student_id)

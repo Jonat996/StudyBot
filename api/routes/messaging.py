@@ -1,11 +1,21 @@
-from flask import Blueprint, request, current_app
+# ─────────────────────────────────────────────────────────────
+# DEPRECATED: Este endpoint era el webhook directo de Twilio.
+# Con la integración de n8n, el canal de mensajería es manejado
+# por n8n (Telegram / WhatsApp). Flask ahora solo expone JSON puro
+# via /api/chat. Este código se conserva como referencia y fallback.
+# Estado: DESHABILITADO — no conectar en producción por ahora.
+# ─────────────────────────────────────────────────────────────
+from flask import Blueprint, request, current_app, jsonify
 
 messaging_bp = Blueprint("messaging", __name__)
 
 
 @messaging_bp.post("/api/webhook/whatsapp")
 def whatsapp_webhook():
-    container = current_app.container
+    # DEPRECATED: ver comentario de módulo
+    return jsonify({"status": "deprecated", "message": "Use /api/chat with n8n integration"}), 410
+
+    container = current_app.container  # noqa: F401 — referencia, no se ejecuta
     provider = container.messaging()
     incoming = provider.parse_incoming(request.form.to_dict())
 
@@ -36,7 +46,8 @@ def telegram_webhook():
     )
 
     process_message = container.process_message_use_case()
-    reply = process_message.execute(student_id=student.id, user_text=incoming.text)
+    result = process_message.execute(student_id=student.id, user_text=incoming.text)
+    reply = result.get("reply", "") if isinstance(result, dict) else result
 
     provider.send_message(incoming.sender_id, reply)
     response_body, status_code = provider.build_response(reply)

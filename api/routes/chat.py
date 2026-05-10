@@ -18,6 +18,6 @@ def chat():
         return jsonify({"error": "Field 'message' is required"}), 400
 
     use_case = current_app.container.process_message_use_case()
-    reply = use_case.execute(student_id=student_id, user_text=message)
+    result = use_case.execute(student_id=student_id, user_text=message)
 
-    return jsonify({"reply": reply})
+    return jsonify(result)
