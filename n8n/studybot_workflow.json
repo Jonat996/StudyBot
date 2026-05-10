@@ -1,8 +1,434 @@
 {
-  "name": "StudyBot Workflow",
-  "nodes": [],
-  "connections": {},
+  "name": "StudyBot - Flujo Completo",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 200],
+      "id": "77d66fae-394c-400a-8dcc-7299848ae092",
+      "name": "Telegram Trigger",
+      "webhookId": "2ef1b447-1ab2-4bf4-b988-e50f3c15359a",
+      "credentials": {
+        "telegramApi": {
+          "id": "d4gdoPvj8b9fDwAi",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const msg = items[0].json.message;\nconst telegramId = msg.from.id;\nconst nombre = msg.from.first_name || 'Estudiante';\nconst username = msg.from.username || '';\nconst texto = msg.text || '';\n\nlet tipoMensaje = 'tarea';\nif (texto === '/start') tipoMensaje = 'inicio';\nelse if (texto === '/conectar') tipoMensaje = 'conectar_calendar';\nelse if (texto === '/misfechas') tipoMensaje = 'ver_tareas';\nelse if (texto === '/ayuda') tipoMensaje = 'ayuda';\n\nreturn [{\n  json: {\n    telegram_id: telegramId,\n    nombre: nombre,\n    username: username,\n    texto: texto,\n    tipo_mensaje: tipoMensaje\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [224, 200],
+      "id": "ca170ab4-e6ff-4836-b182-6c10aac811f5",
+      "name": "Extraer mensaje"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "cmd-check",
+              "leftValue": "={{ $json.tipo_mensaje }}",
+              "rightValue": "tarea",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [448, 200],
+      "id": "if-es-tarea",
+      "name": "¿Es mensaje de tarea?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const tipo = $('Extraer mensaje').item.json.tipo_mensaje;\nconst nombre = $('Extraer mensaje').item.json.nombre;\n\nconst respuestas = {\n  inicio: `👋 ¡Hola ${nombre}! Soy *StudyBot*, tu asistente de estudio.\\n\\nCuéntame qué tienes que estudiar esta semana y te ayudo a organizarte. Por ejemplo:\\n\\n_\"Tengo un parcial de Cálculo el viernes, dificultad 4, creo que necesito 3 horas\"_\\n\\n📌 Comandos disponibles:\\n/ayuda - Ver esta ayuda\\n/misfechas - Ver tus tareas registradas`,\n  ayuda: `📚 *Cómo usar StudyBot*\\n\\nSimplemente cuéntame tus tareas en lenguaje natural:\\n_\"Tengo Física el jueves, es difícil (4/5) y necesito unas 2 horas\"_\\n\\nYo me encargo de:\\n• Predecir cuánto tiempo real te tomará\\n• Priorizar tus tareas\\n• Generar tu cronograma semanal\\n\\n📌 Comandos:\\n/start - Inicio\\n/misfechas - Ver tareas registradas\\n/ayuda - Esta ayuda`,\n  ver_tareas: `📅 Para ver tu historial completo, pronto tendremos esta función activa. Por ahora cuéntame qué tienes que estudiar esta semana.`,\n  conectar_calendar: `📆 La integración con Google Calendar estará disponible próximamente.`\n};\n\nreturn [{\n  json: {\n    telegram_id: $('Extraer mensaje').item.json.telegram_id,\n    reply: respuestas[tipo] || '¿En qué puedo ayudarte hoy?'\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [672, 340],
+      "id": "responder-comando",
+      "name": "Responder comando"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_id }}",
+        "text": "={{ $json.reply }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [896, 340],
+      "id": "send-comando",
+      "name": "Enviar respuesta comando",
+      "credentials": {
+        "telegramApi": {
+          "id": "d4gdoPvj8b9fDwAi",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://web-production-35c8f.up.railway.app/api/students",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"+57{{ $json.telegram_id }}\",\n  \"channel\": \"telegram\",\n  \"name\": \"{{ $json.nombre }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [672, 100],
+      "id": "f8e11a03-b014-4378-9f31-96f64042ea17",
+      "name": "Registrar estudiante"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    student_id: items[0].json.id,\n    nombre: items[0].json.name,\n    phone: items[0].json.phone,\n    texto: $('Extraer mensaje').item.json.texto,\n    telegram_id: $('Extraer mensaje').item.json.telegram_id\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, 100],
+      "id": "8e5b6584-3a95-49c6-ad7c-8d4e534169ea",
+      "name": "Guardar student_id"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://web-production-35c8f.up.railway.app/api/chat",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"student_id\": \"{{ $json.student_id }}\",\n  \"message\": \"{{ $json.texto }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1120, 100],
+      "id": "089d6f29-dcd3-4472-9a98-87d75bbab9ae",
+      "name": "Chat con Gemini"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "24984dce-7cc3-4db9-add9-ff5146f621d7",
+              "leftValue": "={{ $json.action }}",
+              "rightValue": "generate_plan",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1344, 100],
+      "id": "8a515218-13c2-48d1-a8dd-979fc4cb005c",
+      "name": "¿Generar plan?"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Extraer mensaje').item.json.telegram_id }}",
+        "text": "={{ $json.reply }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1568, 220],
+      "id": "2bea765b-7cdf-4212-8766-eab0ecd49d6c",
+      "name": "Responder conversación",
+      "credentials": {
+        "telegramApi": {
+          "id": "d4gdoPvj8b9fDwAi",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://web-production-35c8f.up.railway.app/api/plan",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"student_id\": \"{{ $('Guardar student_id').item.json.student_id }}\",\n  \"week\": 1,\n  \"tasks\": {{ JSON.stringify($('Chat con Gemini').item.json.tasks) }}\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1568, 0],
+      "id": "f9c87871-d7c9-45a5-bf1a-ed2adb479492",
+      "name": "Generar plan"
+    },
+    {
+      "parameters": {
+        "jsCode": "const plan = items[0].json;\nconst schedule = plan.schedule || {};\nconst tasks = plan.tasks || [];\nconst metrics = plan.model_metrics || {};\n\nconst diasNombres = {\n  monday: '📅 Lunes', tuesday: '📅 Martes', wednesday: '📅 Miércoles',\n  thursday: '📅 Jueves', friday: '📅 Viernes', saturday: '📅 Sábado', sunday: '📅 Domingo'\n};\nconst prioridadEmoji = { Maxima: '🔴', Alta: '🟠', Media: '🟡', Baja: '🟢' };\n\nlet mensaje = '📚 *Tu plan de estudio está listo*\\n\\n';\n\nfor (const tarea of tasks) {\n  const emoji = prioridadEmoji[tarea.priority] || '📖';\n  const cumplimiento = tarea.compliance_probability ? Math.round(tarea.compliance_probability * 100) : '--';\n  mensaje += `${emoji} *${tarea.subject}*\\n`;\n  mensaje += `   ⏱ Tiempo predicho: ${tarea.predicted_hours}h\\n`;\n  mensaje += `   📊 Probabilidad de cumplir: ${cumplimiento}%\\n\\n`;\n}\n\nmensaje += '🗓 *Cronograma semanal:*\\n\\n';\nfor (const [dia, sesiones] of Object.entries(schedule)) {\n  if (sesiones && sesiones.length > 0) {\n    mensaje += `${diasNombres[dia] || dia}:\\n`;\n    for (const s of sesiones) {\n      const e = prioridadEmoji[s.priority] || '•';\n      mensaje += `   ${e} ${s.subject} — ${s.hours}h\\n`;\n    }\n    mensaje += '\\n';\n  }\n}\n\nif (plan.max_day_load_pct) {\n  mensaje += `📈 _Carga máxima por día: ${plan.max_day_load_pct}%_\\n`;\n}\n\nreturn [{\n  json: {\n    mensaje: mensaje,\n    telegram_id: $('Extraer mensaje').item.json.telegram_id\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1792, 0],
+      "id": "6a7e8b41-f03a-4899-90ce-267e9725a995",
+      "name": "Formatear plan"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_id }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2016, 0],
+      "id": "426e8723-4315-443d-973d-23caa7a8fa28",
+      "name": "Enviar plan",
+      "credentials": {
+        "telegramApi": {
+          "id": "d4gdoPvj8b9fDwAi",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * 1-6"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 560],
+      "id": "schedule-recordatorios",
+      "name": "⏰ Cron 7am (Lun-Sáb)"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://web-production-35c8f.up.railway.app/api/reminders/today",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [224, 560],
+      "id": "get-recordatorios",
+      "name": "Obtener recordatorios"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "check-reminders",
+              "leftValue": "={{ $json.reminders.length }}",
+              "rightValue": 0,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [448, 560],
+      "id": "check-hay-recordatorios",
+      "name": "¿Hay recordatorios?"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "reminders",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [672, 480],
+      "id": "split-recordatorios",
+      "name": "Un item por estudiante"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = items[0].json;\nconst nombre = r.student_name || 'Estudiante';\nconst tareas = r.tasks || [];\n\nconst prioridadEmoji = { Maxima: '🔴', Alta: '🟠', Media: '🟡', Baja: '🟢' };\n\nlet msg = `🌅 *¡Buenos días, ${nombre}!*\\n\\n`;\nmsg += `📚 *Tu plan de hoy:*\\n\\n`;\n\nfor (const t of tareas) {\n  const emoji = prioridadEmoji[t.priority] || '📖';\n  msg += `${emoji} *${t.subject}* — ${t.hours}h\\n`;\n  if (t.tip) msg += `   _${t.tip}_\\n`;\n  msg += '\\n';\n}\n\nmsg += `💪 _¡Tú puedes! Escríbeme si necesitas ajustar algo._`;\n\nreturn [{\n  json: {\n    telegram_id: r.student_id,\n    mensaje: msg\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [896, 480],
+      "id": "formatear-recordatorio",
+      "name": "Formatear recordatorio"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_id }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [1120, 480],
+      "id": "enviar-recordatorio",
+      "name": "Enviar recordatorio",
+      "credentials": {
+        "telegramApi": {
+          "id": "d4gdoPvj8b9fDwAi",
+          "name": "Telegram account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/10 * * * *"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 720],
+      "id": "schedule-keepalive",
+      "name": "⏰ Ping cada 10 min"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "https://web-production-35c8f.up.railway.app/health",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [224, 720],
+      "id": "keepalive",
+      "name": "🏓 Keep-alive Railway"
+    }
+  ],
+
+  "connections": {
+    "Telegram Trigger": {
+      "main": [[{ "node": "Extraer mensaje", "type": "main", "index": 0 }]]
+    },
+    "Extraer mensaje": {
+      "main": [[{ "node": "¿Es mensaje de tarea?", "type": "main", "index": 0 }]]
+    },
+    "¿Es mensaje de tarea?": {
+      "main": [
+        [{ "node": "Registrar estudiante", "type": "main", "index": 0 }],
+        [{ "node": "Responder comando", "type": "main", "index": 0 }]
+      ]
+    },
+    "Responder comando": {
+      "main": [[{ "node": "Enviar respuesta comando", "type": "main", "index": 0 }]]
+    },
+    "Registrar estudiante": {
+      "main": [[{ "node": "Guardar student_id", "type": "main", "index": 0 }]]
+    },
+    "Guardar student_id": {
+      "main": [[{ "node": "Chat con Gemini", "type": "main", "index": 0 }]]
+    },
+    "Chat con Gemini": {
+      "main": [[{ "node": "¿Generar plan?", "type": "main", "index": 0 }]]
+    },
+    "¿Generar plan?": {
+      "main": [
+        [{ "node": "Generar plan", "type": "main", "index": 0 }],
+        [{ "node": "Responder conversación", "type": "main", "index": 0 }]
+      ]
+    },
+    "Generar plan": {
+      "main": [[{ "node": "Formatear plan", "type": "main", "index": 0 }]]
+    },
+    "Formatear plan": {
+      "main": [[{ "node": "Enviar plan", "type": "main", "index": 0 }]]
+    },
+    "⏰ Cron 7am (Lun-Sáb)": {
+      "main": [[{ "node": "Obtener recordatorios", "type": "main", "index": 0 }]]
+    },
+    "Obtener recordatorios": {
+      "main": [[{ "node": "¿Hay recordatorios?", "type": "main", "index": 0 }]]
+    },
+    "¿Hay recordatorios?": {
+      "main": [
+        [{ "node": "Un item por estudiante", "type": "main", "index": 0 }],
+        []
+      ]
+    },
+    "Un item por estudiante": {
+      "main": [[{ "node": "Formatear recordatorio", "type": "main", "index": 0 }]]
+    },
+    "Formatear recordatorio": {
+      "main": [[{ "node": "Enviar recordatorio", "type": "main", "index": 0 }]]
+    },
+    "⏰ Ping cada 10 min": {
+      "main": [[{ "node": "🏓 Keep-alive Railway", "type": "main", "index": 0 }]]
+    }
+  },
+
   "active": false,
-  "settings": {},
-  "tags": []
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "studybot-flujo-completo-v2",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "34d47e4341bb686f186e36d661288e32d7d58f1bf0618ab398d1ae297b08bf5a"
+  },
+  "id": "XfytOIJu4LaIk4zO",
+  "tags": ["studybot"]
 }
