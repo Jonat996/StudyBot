@@ -1,0 +1,11 @@
+{
+  "regresion": {
+    "MAE": 0.419,
+    "RMSE": 0.548,
+    "R2": 0.894
+  },
+  "clasificacion": {
+    "F1": 0.803,
+    "Accuracy": 0.698
+  }
+}
