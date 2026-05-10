@@ -1,7 +1,9 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+
     supabase_url: str
     supabase_key: str
 
@@ -25,6 +27,3 @@ class Settings(BaseSettings):
     max_day_load_pct: float = 0.40
     history_window: int = 10
     compression_threshold: int = 20
-
-    class Config:
-        env_file = ".env"
