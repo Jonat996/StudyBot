@@ -23,6 +23,10 @@ class Settings(BaseSettings):
     regression_model_file: str = "modelo_studybot.pkl"
     classifier_model_file: str = "modelo_clasificacion.pkl"
 
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = ""
+
     daily_study_hours: int = 8
     max_day_load_pct: float = 0.40
     history_window: int = 10
