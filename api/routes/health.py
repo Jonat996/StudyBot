@@ -9,5 +9,7 @@ def health_check():
     return jsonify({
         "status": "ok",
         "llm_provider": settings.llm_provider,
-        "messaging_provider": settings.messaging_provider,
+        "messaging_provider": "n8n",
+        "whatsapp_webhook": "deprecated",
+        "n8n_endpoints": ["/api/chat", "/api/reminders/today", "/health"],
     })
