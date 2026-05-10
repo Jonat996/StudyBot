@@ -45,7 +45,7 @@ IMPORTANTE:
 - Si no menciona dificultad, pregunta UNA sola cosa a la vez.
 - Nunca asumas dificultad sin preguntar."""
 
-MODEL = "gemini-2.5-flash-preview-04-17"
+MODEL = "gemini-2.5-flash"
 
 
 class GeminiProvider(LLMProvider):

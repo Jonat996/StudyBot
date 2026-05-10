@@ -105,7 +105,7 @@
     },
     {
       "parameters": {
-        "jsCode": "return [{\n  json: {\n    telegram_id: $('Extraer mensaje').item.json.telegram_id,\n    reply: `📆 *Conecta tu Google Calendar*\\n\\nHaz clic en este enlace para autorizar a StudyBot:\\n\\n${items[0].json.auth_url}\\n\\n_El enlace expira en unos minutos. Una vez conectado, tus planes de estudio se agregarán automáticamente a tu calendario._`\n  }\n}];"
+        "jsCode": "const url = items[0].json.auth_url.replace(/_/g, '\\\\_');\nreturn [{\n  json: {\n    telegram_id: $('Extraer mensaje').item.json.telegram_id,\n    reply: `📆 *Conecta tu Google Calendar*\\n\\nHaz clic en este enlace para autorizar a StudyBot:\\n\\n${url}\\n\\n_El enlace expira en unos minutos. Una vez conectado, tus planes de estudio se agregarán automáticamente a tu calendario._`\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
