@@ -2,6 +2,10 @@ from flask import Blueprint, request, jsonify, current_app
 from infrastructure.calendar.google_calendar import get_auth_url, exchange_code, create_events
 from infrastructure.database.supabase_client import get_supabase_client
 from datetime import datetime, timezone
+import requests as http_requests
+import logging
+
+logger = logging.getLogger(__name__)
 
 bp_calendar = Blueprint("calendar", __name__)
 
@@ -38,6 +42,9 @@ def calendar_callback():
             "expires_at": tokens.get("expires_at"),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }).execute()
+
+        # Send Telegram confirmation to the student
+        _notify_telegram_connected(settings, db, student_id)
 
         return """
         <html>
@@ -102,3 +109,33 @@ def calendar_status(student_id):
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+def _notify_telegram_connected(settings, db, student_id: str):
+    """Send a Telegram message confirming Calendar connection."""
+    try:
+        bot_token = settings.telegram_bot_token
+        if not bot_token:
+            return
+
+        student = db.table("students").select("phone").eq("id", student_id).execute()
+        if not student.data:
+            return
+
+        phone = student.data[0].get("phone", "")
+        telegram_id = phone.replace("+57", "") if phone.startswith("+57") else phone
+
+        text = (
+            "✅ *¡Google Calendar conectado exitosamente!*\n\n"
+            "A partir de ahora, cada vez que genere un plan de estudio, "
+            "las sesiones se agregarán automáticamente a tu calendario.\n\n"
+            "_Cuéntame qué tienes que estudiar esta semana._"
+        )
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        http_requests.post(url, json={
+            "chat_id": telegram_id,
+            "text": text,
+            "parse_mode": "Markdown",
+        }, timeout=10)
+    except Exception as e:
+        logger.error("Failed to send Telegram calendar confirmation: %s", e)
