@@ -62,7 +62,9 @@ def create_events(tokens: dict, slots_by_day: dict, settings,
     expiry = None
     if tokens.get('expires_at'):
         try:
-            expiry = dt_cls.fromisoformat(tokens['expires_at'])
+            parsed = dt_cls.fromisoformat(tokens['expires_at'])
+            # google.auth needs offset-naive UTC datetime
+            expiry = parsed.replace(tzinfo=None)
         except (ValueError, TypeError):
             pass
 
