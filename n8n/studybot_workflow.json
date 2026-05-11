@@ -115,7 +115,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const tipo = $('Extraer mensaje').item.json.tipo_mensaje;\nconst nombre = $('Extraer mensaje').item.json.nombre;\n\nconst respuestas = {\n  inicio: `👋 ¡Hola ${nombre}! Soy *StudyBot*, tu asistente de estudio.\\n\\nCuéntame qué tienes que estudiar esta semana y te ayudo a organizarte. Por ejemplo:\\n\\n_\"Tengo un parcial de Cálculo el viernes, dificultad 4, creo que necesito 3 horas\"_\\n\\n📌 Comandos disponibles:\\n/ayuda - Ver esta ayuda\\n/misfechas - Ver tus tareas registradas\\n/conectar - Conectar Google Calendar`,\n  ayuda: `📚 *Cómo usar StudyBot*\\n\\nSimplemente cuéntame tus tareas en lenguaje natural:\\n_\"Tengo Física el jueves, es difícil (4/5) y necesito unas 2 horas\"_\\n\\nYo me encargo de:\\n• Predecir cuánto tiempo real te tomará\\n• Priorizar tus tareas\\n• Generar tu cronograma semanal\\n\\n📌 Comandos:\\n/start - Inicio\\n/misfechas - Ver tareas registradas\\n/conectar - Conectar Google Calendar\\n/ayuda - Esta ayuda`,\n  ver_tareas: `📅 Para ver tu historial completo, pronto tendremos esta función activa. Por ahora cuéntame qué tienes que estudiar esta semana.`\n};\n\nreturn [{\n  json: {\n    telegram_id: $('Extraer mensaje').item.json.telegram_id,\n    reply: respuestas[tipo] || '¿En qué puedo ayudarte hoy?'\n  }\n}];"
+        "jsCode": "const tipo = $('Extraer mensaje').item.json.tipo_mensaje;\nconst nombre = $('Extraer mensaje').item.json.nombre;\n\nconst respuestas = {\n  inicio: `👋 ¡Hola ${nombre}! Soy *StudyBot*, tu asistente de estudio.\\n\\nCuéntame qué tienes que estudiar esta semana y te ayudo a organizarte. Por ejemplo:\\n\\n_\"Tengo un parcial de Cálculo el viernes, dificultad 4, creo que necesito 3 horas\"_\\n\\n📌 Comandos disponibles:\\n/ayuda - Ver esta ayuda\\n/misfechas - Ver tus tareas registradas\\n/conectar - Conectar Google Calendar`,\n  ayuda: `📚 *Cómo usar StudyBot*\\n\\nSimplemente cuéntame tus tareas en lenguaje natural:\\n_\"Tengo Física el jueves, es difícil (4/5) y necesito unas 2 horas\"_\\n\\nYo me encargo de:\\n• Predecir cuánto tiempo real te tomará\\n• Priorizar tus tareas\\n• Generar tu cronograma semanal\\n\\n📌 Comandos:\\n/start - Inicio\\n/misfechas - Ver tareas registradas\\n/conectar - Conectar Google Calendar\\n/ayuda - Esta ayuda`\n};\n\nreturn [{\n  json: {\n    telegram_id: $('Extraer mensaje').item.json.telegram_id,\n    reply: respuestas[tipo] || '¿En qué puedo ayudarte hoy?'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -416,6 +416,65 @@
       "credentials": {
         "telegramApi": { "id": "d4gdoPvj8b9fDwAi", "name": "Telegram account 2" }
       }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "misfechas-check",
+              "leftValue": "={{ $('Extraer mensaje').item.json.tipo_mensaje }}",
+              "rightValue": "ver_tareas",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [672, 520],
+      "id": "if-es-misfechas",
+      "name": "¿Es /misfechas?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://web-production-35c8f.up.railway.app/api/students",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"phone\": \"+57{{ $('Extraer mensaje').item.json.telegram_id }}\",\n  \"channel\": \"telegram\",\n  \"name\": \"{{ $('Extraer mensaje').item.json.nombre }}\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [896, 620],
+      "id": "register-for-tareas",
+      "name": "Registrar (tareas)"
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "=https://web-production-35c8f.up.railway.app/api/students/{{ $json.id }}/history",
+        "options": { "timeout": 15000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1120, 620],
+      "id": "get-historial",
+      "name": "Obtener historial"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = items[0].json;\nconst tasks = data.tasks || [];\nconst telegramId = $('Extraer mensaje').item.json.telegram_id;\n\nif (tasks.length === 0) {\n  return [{\n    json: {\n      telegram_id: telegramId,\n      reply: '📋 *Tus tareas registradas*\\n\\n_No tienes tareas registradas aún. Cuéntame qué tienes que estudiar y te ayudo a organizarte._'\n    }\n  }];\n}\n\nconst prioridadEmoji = { Maxima: '🔴', Alta: '🟠', Media: '🟡', Baja: '🟢' };\nlet msg = '📋 *Tus tareas registradas:*\\n\\n';\n\nfor (const t of tasks.slice(0, 10)) {\n  const emoji = prioridadEmoji[t.priority] || '📖';\n  const estado = t.completed ? '✅' : '⏳';\n  msg += `${emoji} *${t.subject}* ${estado}\\n`;\n  msg += `   ⏱ Predicción: ${t.predicted_hours || t.estimated_hours}h | Dificultad: ${t.difficulty}/5\\n`;\n  if (t.due_date) msg += `   📅 Entrega: ${t.due_date}\\n`;\n  msg += '\\n';\n}\n\nif (tasks.length > 10) {\n  msg += `_... y ${tasks.length - 10} tareas más._\\n`;\n}\n\nreturn [{\n  json: {\n    telegram_id: telegramId,\n    reply: msg\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1344, 620],
+      "id": "formatear-tareas",
+      "name": "Formatear tareas"
     }
   ],
 
@@ -435,7 +494,7 @@
     "¿Es /conectar?": {
       "main": [
         [{ "node": "Registrar (calendar)", "type": "main", "index": 0 }],
-        [{ "node": "Responder comando", "type": "main", "index": 0 }]
+        [{ "node": "¿Es /misfechas?", "type": "main", "index": 0 }]
       ]
     },
     "Registrar (calendar)": {
@@ -506,6 +565,21 @@
     },
     "⏰ Ping cada 10 min": {
       "main": [[{ "node": "🏓 Keep-alive Railway", "type": "main", "index": 0 }]]
+    },
+    "¿Es /misfechas?": {
+      "main": [
+        [{ "node": "Registrar (tareas)", "type": "main", "index": 0 }],
+        [{ "node": "Responder comando", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registrar (tareas)": {
+      "main": [[{ "node": "Obtener historial", "type": "main", "index": 0 }]]
+    },
+    "Obtener historial": {
+      "main": [[{ "node": "Formatear tareas", "type": "main", "index": 0 }]]
+    },
+    "Formatear tareas": {
+      "main": [[{ "node": "Enviar respuesta comando", "type": "main", "index": 0 }]]
     }
   },
 
