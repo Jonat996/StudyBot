@@ -1,3 +1,4 @@
+import json
 from core.entities.student import Student
 from core.interfaces.student_repository import StudentRepository
 
@@ -34,7 +35,7 @@ class ManageProfile:
             name=student.name,
             channel=student.channel,
             personal_factor=student.personal_factor,
-            available_hours=profile.get("available_hours", "No definido"),
+            available_hours=json.dumps(profile["available_hours"], ensure_ascii=False) if profile.get("available_hours") else "No definido",
             difficult_subjects=", ".join(profile.get("difficult_subjects", [])) or "Ninguna",
             compliance_rate=profile.get("compliance_rate", "Sin datos"),
         )
