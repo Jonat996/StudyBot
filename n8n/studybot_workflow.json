@@ -353,6 +353,69 @@
       "position": [224, 780],
       "id": "keepalive",
       "name": "🏓 Keep-alive Railway"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://web-production-35c8f.up.railway.app/api/calendar/events",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"student_id\": \"{{ $('Guardar student_id').item.json.student_id }}\",\n  \"schedule\": {{ JSON.stringify($('Chat con Gemini').item.json.schedule) }},\n  \"available_schedule\": {{ JSON.stringify($('Chat con Gemini').item.json.available_schedule || {}) }}\n}",
+        "options": { "timeout": 30000 }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [2240, 0],
+      "id": "crear-eventos-calendar",
+      "name": "Crear eventos Calendar",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const result = items[0].json;\nconst telegramId = $('Extraer mensaje').item.json.telegram_id;\n\nif (result.error === 'calendar_not_connected') {\n  return [{\n    json: {\n      telegram_id: telegramId,\n      mensaje: '📅 _Tu plan está listo. Si quieres que lo agregue a tu Google Calendar, usa /conectar para vincularlo._'\n    }\n  }];\n}\n\nif (result.events_created && result.events_created > 0) {\n  return [{\n    json: {\n      telegram_id: telegramId,\n      mensaje: `✅ *¡${result.events_created} sesiones agendadas en tu Google Calendar!*\\n\\n_Revisa tu calendario para ver los horarios._`\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    telegram_id: telegramId,\n    mensaje: ''\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2464, 0],
+      "id": "formatear-resultado-calendar",
+      "name": "Formatear resultado Calendar"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "check-calendar-msg",
+              "leftValue": "={{ $json.mensaje }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEquals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [2688, 0],
+      "id": "check-calendar-msg",
+      "name": "¿Hay mensaje Calendar?"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.telegram_id }}",
+        "text": "={{ $json.mensaje }}",
+        "additionalFields": { "parse_mode": "Markdown" }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [2912, 0],
+      "id": "enviar-calendar-msg",
+      "name": "Notificar Calendar",
+      "credentials": {
+        "telegramApi": { "id": "d4gdoPvj8b9fDwAi", "name": "Telegram account 2" }
+      }
     }
   ],
 
@@ -407,6 +470,21 @@
     },
     "Formatear plan": {
       "main": [[{ "node": "Enviar plan", "type": "main", "index": 0 }]]
+    },
+    "Enviar plan": {
+      "main": [[{ "node": "Crear eventos Calendar", "type": "main", "index": 0 }]]
+    },
+    "Crear eventos Calendar": {
+      "main": [[{ "node": "Formatear resultado Calendar", "type": "main", "index": 0 }]]
+    },
+    "Formatear resultado Calendar": {
+      "main": [[{ "node": "¿Hay mensaje Calendar?", "type": "main", "index": 0 }]]
+    },
+    "¿Hay mensaje Calendar?": {
+      "main": [
+        [{ "node": "Notificar Calendar", "type": "main", "index": 0 }],
+        []
+      ]
     },
     "⏰ Cron 7am (Lun-Sáb)": {
       "main": [[{ "node": "Obtener recordatorios", "type": "main", "index": 0 }]]
