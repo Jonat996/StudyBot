@@ -98,6 +98,7 @@ class Container:
             message_repo=self.message_repo(),
             generate_plan=self.generate_plan_use_case(),
             manage_profile=self.manage_profile_use_case(),
+            vector_store=self.vector_store(),
             history_window=self._settings.history_window,
             compression_threshold=self._settings.compression_threshold,
         )

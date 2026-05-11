@@ -1,10 +1,12 @@
 import json
 from datetime import date
+from typing import Optional
 from core.entities.message import Message
 from core.entities.task import Task
 from core.interfaces.llm_provider import LLMProvider
 from core.interfaces.student_repository import StudentRepository
 from core.interfaces.message_repository import MessageRepository
+from core.interfaces.vector_store import VectorStore
 from core.use_cases.generate_plan import GeneratePlan
 from core.use_cases.manage_profile import ManageProfile
 
@@ -26,6 +28,7 @@ class ProcessMessage:
         message_repo: MessageRepository,
         generate_plan: GeneratePlan,
         manage_profile: ManageProfile,
+        vector_store: Optional[VectorStore] = None,
         history_window: int = 10,
         compression_threshold: int = 20,
     ):
@@ -34,6 +37,7 @@ class ProcessMessage:
         self._message_repo = message_repo
         self._generate_plan = generate_plan
         self._manage_profile = manage_profile
+        self._vector_store = vector_store
         self._history_window = history_window
         self._compression_threshold = compression_threshold
 
@@ -43,8 +47,11 @@ class ProcessMessage:
         student = self._student_repo.find_by_id(student_id)
         long_term_memory = student.profile.get("long_term_memory", "") if student else ""
 
+        # RAG: search for relevant resources
+        resources_context = self._search_resources(user_text)
+
         messages = self._build_message_list(history, user_text)
-        system_prompt = self._build_system_prompt(profile_context, long_term_memory)
+        system_prompt = self._build_system_prompt(profile_context, long_term_memory, resources_context)
 
         raw_reply = self._llm.chat(messages, system_prompt)
         result = self._handle_llm_reply(raw_reply, student_id)
@@ -62,12 +69,36 @@ class ProcessMessage:
         messages.append({"role": "user", "content": user_text})
         return messages
 
-    def _build_system_prompt(self, profile_context: str, long_term_memory: str) -> str:
+    def _build_system_prompt(self, profile_context: str, long_term_memory: str, resources_context: str = "") -> str:
         from infrastructure.llm.gemini_provider import STUDYBOT_SYSTEM_PROMPT
         return STUDYBOT_SYSTEM_PROMPT.format(
             profile=profile_context,
             long_term_memory=long_term_memory or "Sin conversaciones anteriores.",
+            resources=resources_context or "No se encontraron recursos relevantes para este mensaje.",
         )
+
+    def _search_resources(self, user_text: str) -> str:
+        """Search for relevant study resources using vector similarity."""
+        if not self._vector_store:
+            return ""
+        try:
+            results = self._vector_store.search(user_text, top_k=3)
+            if not results:
+                return ""
+            pieces = []
+            for r in results:
+                title = r.get("title", "Sin titulo")
+                content = r.get("content", "")[:500]
+                url = r.get("url", "")
+                resource_type = r.get("resource_type", "")
+                entry = f"- [{resource_type}] {title}"
+                if url:
+                    entry += f"\n  URL: {url}"
+                entry += f"\n  Contenido: {content}"
+                pieces.append(entry)
+            return "\n\n".join(pieces)
+        except Exception:
+            return ""
 
     def _handle_llm_reply(self, raw_reply: str, student_id: str) -> dict:
         try:
@@ -87,11 +118,25 @@ class ProcessMessage:
                 return {"action": "collecting", "reply": payload.get("reply", raw_reply)}
 
             enriched, schedule = self._generate_plan.execute(tasks, student_id)
+
+            # Extract per-day schedule from LLM or fall back to stored profile
+            available_schedule = payload.get("available_schedule", {})
+            if not available_schedule:
+                student = self._student_repo.find_by_id(student_id)
+                if student and student.profile.get("available_hours"):
+                    available_schedule = student.profile["available_hours"]
+            if available_schedule:
+                # Save/refresh schedule to student profile for future use
+                self._student_repo.update_profile(student_id, {
+                    "available_hours": available_schedule,
+                })
+
             return {
                 "action": "generate_plan",
                 "reply": self._format_plan_reply(enriched, schedule),
                 "schedule": schedule.slots_by_day,
                 "tasks": [self._task_to_dict(t) for t in enriched],
+                "available_schedule": available_schedule,
                 "max_day_load_pct": schedule.max_day_load_pct,
                 "model_metrics": {
                     "MAE": 0.567, "RMSE": 0.807,
@@ -167,6 +212,7 @@ class ProcessMessage:
             "compliance_rate": "float 0-1",
         }
         extracted = self._llm.extract_entities(user_text, profile_schema)
-        relevant = {k: v for k, v in extracted.items() if v is not None}
+        # Never overwrite structured available_hours from generate_plan
+        relevant = {k: v for k, v in extracted.items() if v is not None and k != "available_hours"}
         if relevant:
             self._student_repo.update_profile(student_id, relevant)
