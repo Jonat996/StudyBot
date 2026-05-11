@@ -30,6 +30,7 @@ def generate_plan():
         tasks=tasks,
         student_id=body.get("student_id"),
         week=body.get("week", 1),
+        available_schedule=body.get("available_schedule"),
     )
 
     # Persist tasks and schedule to Supabase

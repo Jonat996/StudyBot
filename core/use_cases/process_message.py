@@ -152,8 +152,6 @@ class ProcessMessage:
             if not tasks:
                 return {"action": "collecting", "reply": payload.get("reply", raw_reply)}
 
-            enriched, schedule = self._generate_plan.execute(tasks, student_id)
-
             # Extract per-day schedule from LLM or fall back to stored profile
             available_schedule = payload.get("available_schedule", {})
             if not available_schedule:
@@ -165,6 +163,10 @@ class ProcessMessage:
                 self._student_repo.update_profile(student_id, {
                     "available_hours": available_schedule,
                 })
+
+            enriched, schedule = self._generate_plan.execute(
+                tasks, student_id, available_schedule=available_schedule
+            )
 
             return {
                 "action": "generate_plan",

@@ -96,16 +96,21 @@ def create_events(tokens: dict, slots_by_day: dict, settings,
     }
     available_schedule = {_es_to_en.get(k.lower(), k.lower()): v for k, v in available_schedule.items()}
 
-    today = datetime.now()
-    days_to_monday = (7 - today.weekday()) % 7 or 7
-    next_monday = today + timedelta(days=days_to_monday)
+    # Use Bogota timezone (UTC-5) for date calculations
+    from datetime import timezone as tz
+    bogota_tz = tz(timedelta(hours=-5))
+    today = datetime.now(bogota_tz).replace(tzinfo=None)
+    today_weekday = today.weekday()  # 0=Monday
 
     events_created = 0
     for day, slots in slots_by_day.items():
         if not slots:
             continue
-        offset = day_offsets.get(day, 0)
-        event_date = next_monday + timedelta(days=offset)
+        target_weekday = day_offsets.get(day, 0)
+        # Calculate next occurrence of this day (including today)
+        days_ahead = (target_weekday - today_weekday) % 7
+        # If days_ahead is 0, it means today IS that day — use today
+        event_date = today + timedelta(days=days_ahead)
 
         # Get this day's schedule or use default
         day_schedule = available_schedule.get(day, default_schedule)
