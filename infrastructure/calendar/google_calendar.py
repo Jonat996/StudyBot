@@ -1,8 +1,11 @@
 import urllib.parse
+import logging
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 from datetime import datetime, timedelta
+
+logger = logging.getLogger(__name__)
 
 SCOPES = ['https://www.googleapis.com/auth/calendar.events']
 _AUTH_URI = "https://accounts.google.com/o/oauth2/auth"
@@ -116,6 +119,10 @@ def create_events(tokens: dict, slots_by_day: dict, settings,
         day_schedule = available_schedule.get(day, default_schedule)
         start_hour, start_min = (int(x) for x in day_schedule["start"].split(":"))
         end_hour, end_min = (int(x) for x in day_schedule["end"].split(":"))
+
+        logger.info("Calendar event day=%s | event_date=%s | schedule=%s | start=%02d:%02d end=%02d:%02d",
+                     day, event_date.strftime('%Y-%m-%d'), day_schedule,
+                     start_hour, start_min, end_hour, end_min)
 
         current_start = event_date.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
         day_end_limit = event_date.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)

@@ -154,10 +154,13 @@ class ProcessMessage:
 
             # Extract per-day schedule from LLM or fall back to stored profile
             available_schedule = payload.get("available_schedule", {})
+            schedule_source = "llm"
             if not available_schedule:
                 student = self._student_repo.find_by_id(student_id)
                 if student and student.profile.get("available_hours"):
                     available_schedule = student.profile["available_hours"]
+                    schedule_source = "profile_fallback"
+            logger.info("available_schedule source=%s data=%s", schedule_source, available_schedule)
             if available_schedule:
                 # Save/refresh schedule to student profile for future use
                 self._student_repo.update_profile(student_id, {
