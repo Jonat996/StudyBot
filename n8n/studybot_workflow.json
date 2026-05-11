@@ -79,7 +79,7 @@
         "url": "https://web-production-35c8f.up.railway.app/api/students",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"phone\": \"+57{{ $('Extraer mensaje').item.json.telegram_id }}\",\n  \"channel\": \"telegram\",\n  \"name\": \"{{ $('Extraer mensaje').item.json.nombre }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({ phone: '+57' + $('Extraer mensaje').item.json.telegram_id, channel: 'telegram', name: $('Extraer mensaje').item.json.nombre }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -144,7 +144,7 @@
         "url": "https://web-production-35c8f.up.railway.app/api/students",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"phone\": \"+57{{ $json.telegram_id }}\",\n  \"channel\": \"telegram\",\n  \"name\": \"{{ $json.nombre }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({ phone: '+57' + $json.telegram_id, channel: 'telegram', name: $json.nombre }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -169,7 +169,7 @@
         "url": "https://web-production-35c8f.up.railway.app/api/chat",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"student_id\": \"{{ $json.student_id }}\",\n  \"message\": \"{{ $json.texto }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({ student_id: $json.student_id, message: $json.texto }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -221,7 +221,7 @@
         "url": "https://web-production-35c8f.up.railway.app/api/plan",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"student_id\": \"{{ $('Guardar student_id').item.json.student_id }}\",\n  \"week\": 1,\n  \"tasks\": {{ JSON.stringify($('Chat con Gemini').item.json.tasks) }}\n}",
+        "jsonBody": "={{ JSON.stringify({ student_id: $('Guardar student_id').item.json.student_id, week: 1, tasks: $('Chat con Gemini').item.json.tasks }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -360,7 +360,7 @@
         "url": "https://web-production-35c8f.up.railway.app/api/calendar/events",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"student_id\": \"{{ $('Guardar student_id').item.json.student_id }}\",\n  \"schedule\": {{ JSON.stringify($('Chat con Gemini').item.json.schedule) }},\n  \"available_schedule\": {{ JSON.stringify($('Chat con Gemini').item.json.available_schedule || {}) }}\n}",
+        "jsonBody": "={{ JSON.stringify({ student_id: $('Guardar student_id').item.json.student_id, schedule: $('Chat con Gemini').item.json.schedule || {}, available_schedule: $('Chat con Gemini').item.json.available_schedule || {} }) }}",
         "options": { "timeout": 30000 }
       },
       "type": "n8n-nodes-base.httpRequest",
@@ -445,7 +445,7 @@
         "url": "https://web-production-35c8f.up.railway.app/api/students",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={\n  \"phone\": \"+57{{ $('Extraer mensaje').item.json.telegram_id }}\",\n  \"channel\": \"telegram\",\n  \"name\": \"{{ $('Extraer mensaje').item.json.nombre }}\"\n}",
+        "jsonBody": "={{ JSON.stringify({ phone: '+57' + $('Extraer mensaje').item.json.telegram_id, channel: 'telegram', name: $('Extraer mensaje').item.json.nombre }) }}",
         "options": {}
       },
       "type": "n8n-nodes-base.httpRequest",
