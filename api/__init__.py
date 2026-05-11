@@ -26,6 +26,11 @@ def create_app() -> Flask:
     app = Flask(__name__)
     CORS(app)
 
+    # Log config verification
+    logger = logging.getLogger(__name__)
+    logger.info("TELEGRAM_BOT_TOKEN configured: %s", bool(settings.telegram_bot_token))
+    logger.info("GOOGLE_CLIENT_ID configured: %s", bool(settings.google_client_id))
+
     app.container = Container(settings)
 
     app.register_blueprint(health_bp)
