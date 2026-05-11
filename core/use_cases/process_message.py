@@ -125,6 +125,7 @@ class ProcessMessage:
             return ""
 
     def _handle_llm_reply(self, raw_reply: str, student_id: str) -> dict:
+        logger.info("Raw LLM reply (first 500 chars): %s", raw_reply[:500])
         try:
             # Strip markdown code fences that LLMs sometimes wrap around JSON
             cleaned = raw_reply.strip()
@@ -144,9 +145,13 @@ class ProcessMessage:
 
             payload = json.loads(cleaned[start:end])
             action = payload.get("action", "collecting")
+            reply_text = payload.get("reply", raw_reply)
+
+            # Safety: if reply_text is still JSON, try to extract the inner reply
+            reply_text = self._extract_reply_text(reply_text)
 
             if action != PLAN_ACTION:
-                return {"action": "collecting", "reply": payload.get("reply", raw_reply)}
+                return {"action": "collecting", "reply": reply_text}
 
             tasks = self._parse_tasks(payload.get("tasks", []), student_id)
             if not tasks:
@@ -183,8 +188,27 @@ class ProcessMessage:
                     "R2": 0.852, "F1": 0.900, "Accuracy": 0.825,
                 },
             }
-        except (json.JSONDecodeError, KeyError, ValueError):
-            return {"action": "collecting", "reply": raw_reply}
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            logger.warning("JSON parse failed: %s — extracting reply from raw", e)
+            # Try to extract reply text even if full JSON parse failed
+            reply_text = self._extract_reply_text(raw_reply)
+            return {"action": "collecting", "reply": reply_text}
+
+    @staticmethod
+    def _extract_reply_text(text: str) -> str:
+        """Extract plain reply text, handling nested JSON or raw JSON strings."""
+        if not isinstance(text, str):
+            return str(text)
+        stripped = text.strip()
+        # If it looks like JSON, try to extract the reply field
+        if stripped.startswith("{"):
+            try:
+                inner = json.loads(stripped)
+                if isinstance(inner, dict) and "reply" in inner:
+                    return inner["reply"]
+            except (json.JSONDecodeError, ValueError):
+                pass
+        return text
 
     def _parse_tasks(self, raw_tasks: list[dict], student_id: str) -> list[Task]:
         tasks = []
