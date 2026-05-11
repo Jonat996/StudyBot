@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>StudyBot Dashboard</title>
+<style>
+:root {
+  --bg: #0D1117;
+  --card: #161B22;
+  --border: #30363D;
+  --text: #E6EDF3;
+  --text2: #8B949E;
+  --accent: #58A6FF;
+  --green: #3FB950;
+  --yellow: #D29922;
+  --red: #F85149;
+  --orange: #DB6D28;
+  --purple: #BC8CFF;
+  --radius: 12px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Header */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(13, 17, 23, 0.85);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 16px;
+}
+.header-inner {
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.logo {
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.logo span { color: var(--accent); font-size: 16px; }
+
+/* Student selector */
+.selector-wrap {
+  flex: 1;
+  position: relative;
+}
+.selector-wrap select {
+  width: 100%;
+  background: var(--card);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 32px 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  appearance: none;
+  cursor: pointer;
+}
+.selector-wrap::after {
+  content: '▾';
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text2);
+  pointer-events: none;
+}
+
+/* Main */
+.main {
+  max-width: 600px;
+  margin: 0 auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 80px;
+}
+
+/* Loading */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  min-height: 60vh;
+  color: var(--text2);
+}
+.spinner {
+  width: 40px; height: 40px;
+  border: 3px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text2);
+}
+.empty-state .icon { font-size: 48px; margin-bottom: 16px; }
+
+/* Cards */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+.card-title {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text2);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Stats grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.stat-box {
+  background: rgba(88, 166, 255, 0.06);
+  border: 1px solid rgba(88, 166, 255, 0.1);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: center;
+}
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.stat-label {
+  font-size: 11px;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.stat-box.green { background: rgba(63,185,80,0.08); border-color: rgba(63,185,80,0.15); }
+.stat-box.green .stat-value { color: var(--green); }
+.stat-box.red { background: rgba(248,81,73,0.08); border-color: rgba(248,81,73,0.15); }
+.stat-box.red .stat-value { color: var(--red); }
+.stat-box.yellow { background: rgba(210,153,34,0.08); border-color: rgba(210,153,34,0.15); }
+.stat-box.yellow .stat-value { color: var(--yellow); }
+.stat-box.blue .stat-value { color: var(--accent); }
+
+/* Profile */
+.profile-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+.profile-row:last-child { border-bottom: none; }
+.profile-label { color: var(--text2); font-size: 13px; }
+.profile-value { font-size: 14px; font-weight: 500; }
+
+/* Schedule */
+.schedule-day {
+  margin-bottom: 12px;
+}
+.schedule-day:last-child { margin-bottom: 0; }
+.day-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: 6px;
+  text-transform: capitalize;
+}
+.schedule-slot {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(88,166,255,0.06);
+  border-radius: 8px;
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+.slot-priority {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.slot-hours {
+  margin-left: auto;
+  color: var(--text2);
+  font-size: 12px;
+}
+
+/* Tasks list */
+.task-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 14px;
+}
+.task-item:last-child { border-bottom: none; }
+.task-priority-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+.task-info { flex: 1; }
+.task-subject { font-weight: 600; }
+.task-meta {
+  font-size: 12px;
+  color: var(--text2);
+  margin-top: 2px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.task-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+.badge-maxima { background: rgba(248,81,73,0.15); color: var(--red); }
+.badge-alta { background: rgba(219,109,40,0.15); color: var(--orange); }
+.badge-media { background: rgba(210,153,34,0.15); color: var(--yellow); }
+.badge-baja { background: rgba(63,185,80,0.15); color: var(--green); }
+
+/* Resources */
+.resource-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text);
+  transition: background 0.15s;
+}
+.resource-item:hover { background: rgba(88,166,255,0.06); }
+.resource-item:last-child { border-bottom: none; }
+.resource-icon {
+  width: 36px; height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.resource-icon.video { background: rgba(248,81,73,0.12); }
+.resource-icon.pdf { background: rgba(88,166,255,0.12); }
+.resource-title { font-size: 13px; font-weight: 500; line-height: 1.3; }
+.resource-subject { font-size: 11px; color: var(--text2); }
+.resource-arrow { color: var(--text2); margin-left: auto; }
+
+/* Hours bar */
+.hours-bar-wrap {
+  margin-top: 8px;
+}
+.hours-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text2);
+  margin-bottom: 4px;
+}
+.hours-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.hours-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--green), var(--accent));
+  border-radius: 4px;
+  transition: width 0.6s ease;
+}
+
+/* Calendar badge */
+.cal-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.cal-connected { background: rgba(63,185,80,0.12); color: var(--green); }
+.cal-disconnected { background: rgba(248,81,73,0.1); color: var(--red); }
+
+/* Chat messages */
+.chat-wrap {
+  max-height: 400px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chat-msg {
+  max-width: 85%;
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+.chat-msg.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.chat-msg.model {
+  align-self: flex-start;
+  background: var(--border);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+.chat-time {
+  font-size: 10px;
+  color: rgba(255,255,255,0.5);
+  margin-top: 4px;
+}
+.chat-msg.model .chat-time { color: var(--text2); }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.tab {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text2);
+  border: none;
+  background: none;
+  transition: all 0.2s;
+}
+.tab.active {
+  background: rgba(88,166,255,0.1);
+  color: var(--accent);
+}
+
+/* Bottom nav */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(13, 17, 23, 0.92);
+  backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+.nav-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0 12px;
+  font-size: 10px;
+  color: var(--text2);
+  cursor: pointer;
+  border: none;
+  background: none;
+  transition: color 0.2s;
+}
+.nav-item.active { color: var(--accent); }
+.nav-item .nav-icon { font-size: 20px; }
+
+/* Section transitions */
+.section { display: none; }
+.section.active { display: flex; flex-direction: column; gap: 16px; }
+
+/* Subject chips */
+.subject-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  background: rgba(188,140,255,0.1);
+  color: var(--purple);
+  border: 1px solid rgba(188,140,255,0.2);
+}
+.chip .count {
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+/* Availability */
+.avail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 8px;
+}
+.avail-day {
+  background: rgba(88,166,255,0.06);
+  border: 1px solid rgba(88,166,255,0.1);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+.avail-day-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: capitalize;
+  margin-bottom: 4px;
+}
+.avail-day-hours {
+  font-size: 13px;
+  color: var(--text);
+}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+  <div class="header-inner">
+    <div class="logo">📚 <span>StudyBot</span></div>
+    <div class="selector-wrap">
+      <select id="studentSelect" onchange="loadDashboard()">
+        <option value="">Seleccionar estudiante...</option>
+      </select>
+    </div>
+  </div>
+</header>
+
+<!-- Main content -->
+<div class="main" id="mainContent">
+  <div class="empty-state" id="emptyState">
+    <div class="icon">🎓</div>
+    <h3>Bienvenido a StudyBot</h3>
+    <p style="margin-top:8px;font-size:14px">Selecciona un estudiante para ver su dashboard</p>
+  </div>
+</div>
+
+<!-- Loading -->
+<div class="loading" id="loadingState" style="display:none">
+  <div class="spinner"></div>
+  <span>Cargando dashboard...</span>
+</div>
+
+<!-- Dashboard content (hidden template) -->
+<div id="dashboardContent" style="display:none">
+
+  <!-- Bottom navigation -->
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="showSection('overview')" id="nav-overview">
+      <span class="nav-icon">📊</span> Resumen
+    </button>
+    <button class="nav-item" onclick="showSection('tasks')" id="nav-tasks">
+      <span class="nav-icon">📋</span> Tareas
+    </button>
+    <button class="nav-item" onclick="showSection('resources')" id="nav-resources">
+      <span class="nav-icon">📚</span> Recursos
+    </button>
+    <button class="nav-item" onclick="showSection('chat')" id="nav-chat">
+      <span class="nav-icon">💬</span> Chat
+    </button>
+  </nav>
+
+</div>
+
+<script>
+const API_BASE = 'https://web-production-35c8f.up.railway.app';
+let currentData = null;
+
+const DAY_NAMES = {
+  monday: 'Lunes', tuesday: 'Martes', wednesday: 'Miércoles',
+  thursday: 'Jueves', friday: 'Viernes', saturday: 'Sábado', sunday: 'Domingo',
+  lunes: 'Lunes', martes: 'Martes', miércoles: 'Miércoles', 'miercoles': 'Miércoles',
+  jueves: 'Jueves', viernes: 'Viernes', sábado: 'Sábado', sabado: 'Sábado', domingo: 'Domingo'
+};
+
+const PRIORITY_COLORS = {
+  Maxima: '#F85149', Alta: '#DB6D28', Media: '#D29922', Baja: '#3FB950'
+};
+
+// Load students on page load
+async function init() {
+  try {
+    const res = await fetch(`${API_BASE}/api/students/list`);
+    const students = await res.json();
+    const select = document.getElementById('studentSelect');
+    students.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.textContent = `${s.name} (${s.phone || s.channel})`;
+      select.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('Error loading students:', e);
+  }
+}
+
+async function loadDashboard() {
+  const studentId = document.getElementById('studentSelect').value;
+  if (!studentId) return;
+
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'flex';
+  document.getElementById('mainContent').innerHTML = '';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/dashboard/${studentId}`);
+    currentData = await res.json();
+    renderDashboard(currentData);
+  } catch (e) {
+    console.error('Error loading dashboard:', e);
+    document.getElementById('mainContent').innerHTML = `
+      <div class="empty-state">
+        <div class="icon">⚠️</div>
+        <h3>Error al cargar</h3>
+        <p style="margin-top:8px;font-size:14px">${e.message}</p>
+      </div>
+    `;
+  } finally {
+    document.getElementById('loadingState').style.display = 'none';
+  }
+}
+
+function renderDashboard(data) {
+  const main = document.getElementById('mainContent');
+  const s = data.summary;
+  const student = data.student;
+  const profile = student.profile || {};
+  const availHours = profile.available_hours || {};
+  const schedule = data.latest_schedule;
+  const cal = data.calendar || {};
+
+  main.innerHTML = `
+    <!-- OVERVIEW SECTION -->
+    <div class="section active" id="section-overview">
+
+      <!-- Student info -->
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--purple));display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700">${student.name.charAt(0).toUpperCase()}</div>
+          <div>
+            <div style="font-weight:600;font-size:16px">${student.name}</div>
+            <div style="font-size:12px;color:var(--text2)">${student.phone || ''}</div>
+          </div>
+          <div style="margin-left:auto">
+            <span class="cal-status ${cal.connected ? 'cal-connected' : 'cal-disconnected'}">
+              ${cal.connected ? '📅 Calendar' : '⛔ Sin Calendar'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid">
+        <div class="stat-box blue">
+          <div class="stat-value">${s.total_tasks}</div>
+          <div class="stat-label">Total tareas</div>
+        </div>
+        <div class="stat-box yellow">
+          <div class="stat-value">${s.pending}</div>
+          <div class="stat-label">Pendientes</div>
+        </div>
+        <div class="stat-box green">
+          <div class="stat-value">${s.completed}</div>
+          <div class="stat-label">Completadas</div>
+        </div>
+        <div class="stat-box red">
+          <div class="stat-value">${s.overdue}</div>
+          <div class="stat-label">Atrasadas</div>
+        </div>
+      </div>
+
+      <!-- Hours -->
+      <div class="card">
+        <div class="card-title">⏱ Horas de estudio</div>
+        <div class="hours-bar-wrap">
+          <div class="hours-labels">
+            <span>Estimadas: ${s.total_estimated_hours}h</span>
+            <span>Predichas (ML): ${s.total_predicted_hours}h</span>
+          </div>
+          <div class="hours-bar">
+            <div class="hours-bar-fill" style="width:${s.total_estimated_hours > 0 ? Math.min((s.total_predicted_hours / s.total_estimated_hours) * 100, 100) : 0}%"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Subjects -->
+      ${Object.keys(data.subject_breakdown).length > 0 ? `
+      <div class="card">
+        <div class="card-title">📖 Materias</div>
+        <div class="subject-chips">
+          ${Object.entries(data.subject_breakdown).map(([subj, count]) =>
+            `<span class="chip">${subj}<span class="count">${count}</span></span>`
+          ).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Availability -->
+      ${Object.keys(availHours).length > 0 ? `
+      <div class="card">
+        <div class="card-title">🕐 Horarios disponibles</div>
+        <div class="avail-grid">
+          ${Object.entries(availHours).map(([day, hours]) => `
+            <div class="avail-day">
+              <div class="avail-day-name">${DAY_NAMES[day] || day}</div>
+              <div class="avail-day-hours">${hours.start} - ${hours.end}</div>
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+
+      <!-- Latest Schedule -->
+      ${schedule && schedule.slots_by_day ? `
+      <div class="card">
+        <div class="card-title">🗓 Último plan generado</div>
+        ${Object.entries(schedule.slots_by_day).filter(([_, slots]) => slots.length > 0).map(([day, slots]) => `
+          <div class="schedule-day">
+            <div class="day-name">${DAY_NAMES[day] || day}</div>
+            ${slots.map(slot => `
+              <div class="schedule-slot">
+                <span class="slot-priority" style="background:${PRIORITY_COLORS[slot.priority] || '#D29922'}"></span>
+                <span>${slot.subject}</span>
+                <span class="slot-hours">${slot.hours.toFixed(1)}h</span>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      </div>` : ''}
+    </div>
+
+    <!-- TASKS SECTION -->
+    <div class="section" id="section-tasks">
+      <div class="tabs">
+        <button class="tab active" onclick="filterTasks('pending', this)">Pendientes (${data.pending_tasks.length})</button>
+        <button class="tab" onclick="filterTasks('overdue', this)">Atrasadas (${data.overdue_tasks.length})</button>
+        <button class="tab" onclick="filterTasks('upcoming', this)">Próximas (${data.upcoming_tasks.length})</button>
+      </div>
+      <div class="card" id="tasksContainer">
+        ${renderTaskList(data.pending_tasks)}
+      </div>
+    </div>
+
+    <!-- RESOURCES SECTION -->
+    <div class="section" id="section-resources">
+      <div class="tabs">
+        <button class="tab active" onclick="filterResources('all', this)">Todos (${data.resources.length})</button>
+        <button class="tab" onclick="filterResources('video', this)">Videos</button>
+        <button class="tab" onclick="filterResources('pdf', this)">PDFs</button>
+      </div>
+      <div class="card" id="resourcesContainer">
+        ${renderResourceList(data.resources)}
+      </div>
+    </div>
+
+    <!-- CHAT SECTION -->
+    <div class="section" id="section-chat">
+      <div class="card">
+        <div class="card-title">💬 Conversación reciente</div>
+        <div class="chat-wrap">
+          ${data.recent_messages.length > 0 ?
+            data.recent_messages.map(m => renderChatMsg(m)).join('') :
+            '<div style="text-align:center;color:var(--text2);padding:20px;font-size:14px">Sin mensajes recientes</div>'
+          }
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.getElementById('dashboardContent').style.display = 'block';
+  showSection('overview');
+}
+
+function renderTaskList(tasks) {
+  if (!tasks.length) return '<div style="text-align:center;color:var(--text2);padding:20px;font-size:14px">No hay tareas</div>';
+  return tasks.map(t => {
+    const p = t.priority || 'Media';
+    const color = PRIORITY_COLORS[p] || '#D29922';
+    const badgeClass = 'badge-' + p.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    return `
+      <div class="task-item">
+        <span class="task-priority-dot" style="background:${color}"></span>
+        <div class="task-info">
+          <div class="task-subject">${t.subject}</div>
+          <div class="task-meta">
+            <span>📅 ${t.due_date || 'Sin fecha'}</span>
+            <span>⏱ ${t.predicted_hours ? t.predicted_hours.toFixed(1) + 'h' : t.estimated_hours + 'h est.'}</span>
+            <span class="task-badge ${badgeClass}">${p}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function renderResourceList(resources, filter) {
+  let filtered = resources;
+  if (filter && filter !== 'all') {
+    filtered = resources.filter(r => r.resource_type === filter);
+  }
+  if (!filtered.length) return '<div style="text-align:center;color:var(--text2);padding:20px;font-size:14px">No hay recursos</div>';
+  return filtered.map(r => {
+    const isVideo = r.resource_type === 'video';
+    const icon = isVideo ? '🎬' : '📄';
+    const iconClass = isVideo ? 'video' : 'pdf';
+    const href = r.url ? `href="${r.url}" target="_blank"` : '';
+    return `
+      <a class="resource-item" ${href}>
+        <div class="resource-icon ${iconClass}">${icon}</div>
+        <div>
+          <div class="resource-title">${r.title}</div>
+          <div class="resource-subject">${r.subject || ''}</div>
+        </div>
+        ${r.url ? '<span class="resource-arrow">→</span>' : ''}
+      </a>
+    `;
+  }).join('');
+}
+
+function renderChatMsg(m) {
+  const isUser = m.role === 'user';
+  let content = m.content;
+  // Try to extract reply from JSON
+  try {
+    const parsed = JSON.parse(content);
+    if (parsed.reply) content = parsed.reply;
+  } catch {}
+  // Truncate long messages
+  if (content.length > 500) content = content.substring(0, 500) + '...';
+  const time = m.created_at ? new Date(m.created_at).toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }) : '';
+  return `
+    <div class="chat-msg ${isUser ? 'user' : 'model'}">
+      ${content}
+      ${time ? `<div class="chat-time">${time}</div>` : ''}
+    </div>
+  `;
+}
+
+function showSection(name) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const section = document.getElementById('section-' + name);
+  const nav = document.getElementById('nav-' + name);
+  if (section) section.classList.add('active');
+  if (nav) nav.classList.add('active');
+}
+
+function filterTasks(type, btn) {
+  if (!currentData) return;
+  btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  const container = document.getElementById('tasksContainer');
+  const map = {
+    pending: currentData.pending_tasks,
+    overdue: currentData.overdue_tasks,
+    upcoming: currentData.upcoming_tasks,
+  };
+  container.innerHTML = renderTaskList(map[type] || []);
+}
+
+function filterResources(type, btn) {
+  if (!currentData) return;
+  btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  const container = document.getElementById('resourcesContainer');
+  container.innerHTML = renderResourceList(currentData.resources, type);
+}
+
+init();
+</script>
+</body>
+</html>
