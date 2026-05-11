@@ -28,7 +28,10 @@ def create_app() -> Flask:
 
     # Log config verification
     logger = logging.getLogger(__name__)
-    logger.info("TELEGRAM_BOT_TOKEN configured: %s", bool(settings.telegram_bot_token))
+    import os
+    raw_env = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+    logger.info("TELEGRAM_BOT_TOKEN from os.environ: len=%d, first5=%s", len(raw_env), raw_env[:5] if raw_env else "EMPTY")
+    logger.info("TELEGRAM_BOT_TOKEN from settings: len=%d", len(settings.telegram_bot_token))
     logger.info("GOOGLE_CLIENT_ID configured: %s", bool(settings.google_client_id))
 
     app.container = Container(settings)
