@@ -1,3 +1,5 @@
+import logging
+import sys
 from flask import Flask
 from flask_cors import CORS
 from config.settings import Settings
@@ -13,6 +15,13 @@ from api.middleware.error_handler import register_error_handlers
 
 
 def create_app() -> Flask:
+    # Configure logging to stdout so Railway captures it
+    logging.basicConfig(
+        stream=sys.stdout,
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    )
+
     settings = Settings()
     app = Flask(__name__)
     CORS(app)

@@ -45,6 +45,7 @@ def calendar_callback():
 
         # Send Telegram confirmation to the student
         _notify_telegram_connected(settings, db, student_id)
+        logger.info("OAuth callback successful for student %s", student_id)
 
         return """
         <html>
@@ -58,6 +59,7 @@ def calendar_callback():
         """, 200
 
     except Exception as e:
+        logger.error("OAuth callback failed: %s", e, exc_info=True)
         return f"<h2>❌ Error: {str(e)}</h2>", 500
 
 
@@ -88,9 +90,11 @@ def create_calendar_events():
 
         tokens = result.data[0]
         count = create_events(tokens, slots, settings, available_schedule)
+        logger.info("Created %d calendar events for student %s", count, student_id)
         return jsonify({"events_created": count, "student_id": student_id})
 
     except Exception as e:
+        logger.error("Calendar events failed for student %s: %s", student_id, e, exc_info=True)
         return jsonify({"error": str(e)}), 500
 
 
@@ -116,14 +120,17 @@ def _notify_telegram_connected(settings, db, student_id: str):
     try:
         bot_token = settings.telegram_bot_token
         if not bot_token:
+            logger.warning("TELEGRAM_BOT_TOKEN not set, skipping notification")
             return
 
         student = db.table("students").select("phone").eq("id", student_id).execute()
         if not student.data:
+            logger.warning("Student %s not found for Telegram notification", student_id)
             return
 
         phone = student.data[0].get("phone", "")
         telegram_id = phone.replace("+57", "") if phone.startswith("+57") else phone
+        logger.info("Sending Telegram notification to chat_id=%s", telegram_id)
 
         text = (
             "✅ *¡Google Calendar conectado exitosamente!*\n\n"
@@ -132,10 +139,11 @@ def _notify_telegram_connected(settings, db, student_id: str):
             "_Cuéntame qué tienes que estudiar esta semana._"
         )
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-        http_requests.post(url, json={
+        resp = http_requests.post(url, json={
             "chat_id": telegram_id,
             "text": text,
             "parse_mode": "Markdown",
         }, timeout=10)
+        logger.info("Telegram API response: %s %s", resp.status_code, resp.text[:200])
     except Exception as e:
         logger.error("Failed to send Telegram calendar confirmation: %s", e)
