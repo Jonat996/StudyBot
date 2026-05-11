@@ -1,4 +1,7 @@
 from flask import Blueprint, jsonify, request, current_app
+import logging
+
+logger = logging.getLogger(__name__)
 
 chat_bp = Blueprint("chat", __name__)
 
@@ -17,7 +20,13 @@ def chat():
     if not message:
         return jsonify({"error": "Field 'message' is required"}), 400
 
-    use_case = current_app.container.process_message_use_case()
-    result = use_case.execute(student_id=student_id, user_text=message)
-
-    return jsonify(result)
+    try:
+        use_case = current_app.container.process_message_use_case()
+        result = use_case.execute(student_id=student_id, user_text=message)
+        return jsonify(result)
+    except Exception as e:
+        logger.error("Chat failed for student %s: %s", student_id, e, exc_info=True)
+        return jsonify({
+            "action": "collecting",
+            "reply": "Lo siento, tuve un problema procesando tu mensaje. ¿Puedes intentarlo de nuevo?",
+        }), 200
