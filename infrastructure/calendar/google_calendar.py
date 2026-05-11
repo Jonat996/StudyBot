@@ -46,7 +46,18 @@ def exchange_code(settings, code: str) -> dict:
     }
 
 
-def create_events(tokens: dict, slots_by_day: dict, settings) -> int:
+def create_events(tokens: dict, slots_by_day: dict, settings,
+                   available_schedule: dict = None) -> int:
+    """Create Google Calendar events from a study plan.
+
+    Args:
+        tokens: OAuth tokens (access_token, refresh_token)
+        slots_by_day: {"monday": [{"subject": ..., "hours": ..., "priority": ...}], ...}
+        settings: App settings with Google credentials
+        available_schedule: Per-day availability, e.g.
+            {"monday": {"start": "17:00", "end": "21:00"}, "tuesday": {"start": "14:00", "end": "20:00"}}
+            Falls back to 14:00-20:00 if not provided.
+    """
     creds = Credentials(
         token=tokens['access_token'],
         refresh_token=tokens.get('refresh_token'),
@@ -62,6 +73,18 @@ def create_events(tokens: dict, slots_by_day: dict, settings) -> int:
     }
     priority_colors = {'Maxima': '11', 'Alta': '6', 'Media': '5', 'Baja': '2'}
 
+    default_schedule = {"start": "14:00", "end": "20:00"}
+    if not available_schedule:
+        available_schedule = {}
+
+    # Translate Spanish day names to English
+    _es_to_en = {
+        "lunes": "monday", "martes": "tuesday", "miércoles": "wednesday",
+        "miercoles": "wednesday", "jueves": "thursday", "viernes": "friday",
+        "sábado": "saturday", "sabado": "saturday", "domingo": "sunday",
+    }
+    available_schedule = {_es_to_en.get(k.lower(), k.lower()): v for k, v in available_schedule.items()}
+
     today = datetime.now()
     days_to_monday = (7 - today.weekday()) % 7 or 7
     next_monday = today + timedelta(days=days_to_monday)
@@ -73,10 +96,22 @@ def create_events(tokens: dict, slots_by_day: dict, settings) -> int:
         offset = day_offsets.get(day, 0)
         event_date = next_monday + timedelta(days=offset)
 
+        # Get this day's schedule or use default
+        day_schedule = available_schedule.get(day, default_schedule)
+        start_hour, start_min = (int(x) for x in day_schedule["start"].split(":"))
+        end_hour, end_min = (int(x) for x in day_schedule["end"].split(":"))
+
+        current_start = event_date.replace(hour=start_hour, minute=start_min, second=0, microsecond=0)
+        day_end_limit = event_date.replace(hour=end_hour, minute=end_min, second=0, microsecond=0)
+
         for slot in slots:
-            hours = slot.get('hours', slot.get('predicted_hours', 1))
-            start = event_date.replace(hour=18, minute=0, second=0, microsecond=0)
-            end = start + timedelta(hours=float(hours))
+            hours = float(slot.get('hours', slot.get('predicted_hours', 1)))
+            end = current_start + timedelta(hours=hours)
+
+            if end > day_end_limit:
+                end = day_end_limit
+                if current_start >= day_end_limit:
+                    break
 
             priority = slot.get('priority', 'Media')
             subject = slot.get('subject', slot.get('materia', 'Estudio'))
@@ -84,7 +119,7 @@ def create_events(tokens: dict, slots_by_day: dict, settings) -> int:
             event = {
                 'summary': f'📚 {subject} ({hours}h)',
                 'description': f'Prioridad: {priority}\nGenerado por StudyBot',
-                'start': {'dateTime': start.isoformat(), 'timeZone': 'America/Bogota'},
+                'start': {'dateTime': current_start.isoformat(), 'timeZone': 'America/Bogota'},
                 'end': {'dateTime': end.isoformat(), 'timeZone': 'America/Bogota'},
                 'colorId': priority_colors.get(priority, '5'),
                 'reminders': {
@@ -94,5 +129,8 @@ def create_events(tokens: dict, slots_by_day: dict, settings) -> int:
             }
             service.events().insert(calendarId='primary', body=event).execute()
             events_created += 1
+
+            # Next event starts where this one ended + 10 min break
+            current_start = end + timedelta(minutes=10)
 
     return events_created

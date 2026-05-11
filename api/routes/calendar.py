@@ -59,6 +59,7 @@ def create_calendar_events():
     data = request.json or {}
     student_id = data.get("student_id")
     slots = data.get("schedule", {})
+    available_schedule = data.get("available_schedule", {})
 
     if not student_id or not slots:
         return jsonify({"error": "student_id and schedule required"}), 400
@@ -79,7 +80,7 @@ def create_calendar_events():
             }), 404
 
         tokens = result.data[0]
-        count = create_events(tokens, slots, settings)
+        count = create_events(tokens, slots, settings, available_schedule)
         return jsonify({"events_created": count, "student_id": student_id})
 
     except Exception as e:
