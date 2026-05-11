@@ -21,7 +21,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const msg = items[0].json.message;\nconst telegramId = msg.from.id;\nconst nombre = msg.from.first_name || 'Estudiante';\nconst username = msg.from.username || '';\nconst texto = msg.text || '';\n\nlet tipoMensaje = 'tarea';\nif (texto === '/start') tipoMensaje = 'inicio';\nelse if (texto === '/conectar') tipoMensaje = 'conectar_calendar';\nelse if (texto === '/misfechas') tipoMensaje = 'ver_tareas';\nelse if (texto === '/ayuda') tipoMensaje = 'ayuda';\n\nreturn [{\n  json: {\n    telegram_id: telegramId,\n    nombre: nombre,\n    username: username,\n    texto: texto,\n    tipo_mensaje: tipoMensaje\n  }\n}];"
+        "jsCode": "const msg = items[0].json.message;\nconst telegramId = msg.from.id;\nconst nombre = msg.from.first_name || 'Estudiante';\nconst username = msg.from.username || '';\nconst texto = msg.text || '';\n\nlet tipoMensaje = 'tarea';\nif (texto === '/start') tipoMensaje = 'inicio';\nelse if (texto === '/conectar') tipoMensaje = 'conectar_calendar';\nelse if (texto === '/misfechas') tipoMensaje = 'ver_tareas';\nelse if (texto === '/resumen') tipoMensaje = 'ver_resumen';\nelse if (texto === '/ayuda') tipoMensaje = 'ayuda';\n\nreturn [{\n  json: {\n    telegram_id: telegramId,\n    nombre: nombre,\n    username: username,\n    texto: texto,\n    tipo_mensaje: tipoMensaje\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -115,7 +115,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const tipo = $('Extraer mensaje').item.json.tipo_mensaje;\nconst nombre = $('Extraer mensaje').item.json.nombre;\n\nconst respuestas = {\n  inicio: `👋 ¡Hola ${nombre}! Soy *StudyBot*, tu asistente de estudio.\\n\\nCuéntame qué tienes que estudiar esta semana y te ayudo a organizarte. Por ejemplo:\\n\\n_\"Tengo un parcial de Cálculo el viernes, dificultad 4, creo que necesito 3 horas\"_\\n\\n📌 Comandos disponibles:\\n/ayuda - Ver esta ayuda\\n/misfechas - Ver tus tareas registradas\\n/conectar - Conectar Google Calendar`,\n  ayuda: `📚 *Cómo usar StudyBot*\\n\\nSimplemente cuéntame tus tareas en lenguaje natural:\\n_\"Tengo Física el jueves, es difícil (4/5) y necesito unas 2 horas\"_\\n\\nYo me encargo de:\\n• Predecir cuánto tiempo real te tomará\\n• Priorizar tus tareas\\n• Generar tu cronograma semanal\\n\\n📌 Comandos:\\n/start - Inicio\\n/misfechas - Ver tareas registradas\\n/conectar - Conectar Google Calendar\\n/ayuda - Esta ayuda`\n};\n\nreturn [{\n  json: {\n    telegram_id: $('Extraer mensaje').item.json.telegram_id,\n    reply: respuestas[tipo] || '¿En qué puedo ayudarte hoy?'\n  }\n}];"
+        "jsCode": "const tipo = $('Extraer mensaje').item.json.tipo_mensaje;\nconst nombre = $('Extraer mensaje').item.json.nombre;\n\nconst respuestas = {\n  inicio: `👋 ¡Hola ${nombre}! Soy *StudyBot*, tu asistente de estudio.\\n\\nCuéntame qué tienes que estudiar esta semana y te ayudo a organizarte. Por ejemplo:\\n\\n_\"Tengo un parcial de Cálculo el viernes, dificultad 4, creo que necesito 3 horas\"_\\n\\n📌 Comandos disponibles:\\n/ayuda - Ver esta ayuda\\n/misfechas - Ver tus tareas registradas\\n/conectar - Conectar Google Calendar\\n/resumen - Ver tu dashboard completo`,\n  ayuda: `📚 *Cómo usar StudyBot*\\n\\nSimplemente cuéntame tus tareas en lenguaje natural:\\n_\"Tengo Física el jueves, es difícil (4/5) y necesito unas 2 horas\"_\\n\\nYo me encargo de:\\n• Predecir cuánto tiempo real te tomará\\n• Priorizar tus tareas\\n• Generar tu cronograma semanal\\n\\n📌 Comandos:\\n/start - Inicio\\n/misfechas - Ver tareas registradas\\n/conectar - Conectar Google Calendar\\n/resumen - Ver tu dashboard completo\\n/ayuda - Esta ayuda`\n};\n\nreturn [{\n  json: {\n    telegram_id: $('Extraer mensaje').item.json.telegram_id,\n    reply: respuestas[tipo] || '¿En qué puedo ayudarte hoy?'\n  }\n}];"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -475,6 +475,53 @@
       "position": [1344, 620],
       "id": "formatear-tareas",
       "name": "Formatear tareas"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "strict", "version": 3 },
+          "conditions": [
+            {
+              "id": "resumen-check",
+              "leftValue": "={{ $('Extraer mensaje').item.json.tipo_mensaje }}",
+              "rightValue": "ver_resumen",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [896, 740],
+      "id": "if-es-resumen",
+      "name": "¿Es /resumen?"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://web-production-35c8f.up.railway.app/api/students",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ phone: '+57' + $('Extraer mensaje').item.json.telegram_id, channel: 'telegram', name: $('Extraer mensaje').item.json.nombre }) }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [1120, 740],
+      "id": "register-for-resumen",
+      "name": "Registrar (resumen)"
+    },
+    {
+      "parameters": {
+        "jsCode": "const studentId = items[0].json.id;\nconst telegramId = $('Extraer mensaje').item.json.telegram_id;\nconst nombre = $('Extraer mensaje').item.json.nombre;\nconst dashboardUrl = 'https://frontend-5em6kuwmu-jonathanmartinezc996-3901s-projects.vercel.app/';\n\nconst msg = `📊 *Tu Dashboard de Estudio*\\n\\n${nombre}, puedes ver todo tu material de aprendizaje, tus tareas pendientes, recursos disponibles y tu progreso aqui:\\n\\n🔗 ${dashboardUrl}\\n\\n_Selecciona tu nombre en el menu desplegable para ver tu informacion._`;\n\nreturn [{\n  json: {\n    telegram_id: telegramId,\n    reply: msg\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1344, 740],
+      "id": "formatear-resumen",
+      "name": "Formatear resumen"
     }
   ],
 
@@ -569,7 +616,7 @@
     "¿Es /misfechas?": {
       "main": [
         [{ "node": "Registrar (tareas)", "type": "main", "index": 0 }],
-        [{ "node": "Responder comando", "type": "main", "index": 0 }]
+        [{ "node": "¿Es /resumen?", "type": "main", "index": 0 }]
       ]
     },
     "Registrar (tareas)": {
@@ -579,6 +626,18 @@
       "main": [[{ "node": "Formatear tareas", "type": "main", "index": 0 }]]
     },
     "Formatear tareas": {
+      "main": [[{ "node": "Enviar respuesta comando", "type": "main", "index": 0 }]]
+    },
+    "¿Es /resumen?": {
+      "main": [
+        [{ "node": "Registrar (resumen)", "type": "main", "index": 0 }],
+        [{ "node": "Responder comando", "type": "main", "index": 0 }]
+      ]
+    },
+    "Registrar (resumen)": {
+      "main": [[{ "node": "Formatear resumen", "type": "main", "index": 0 }]]
+    },
+    "Formatear resumen": {
       "main": [[{ "node": "Enviar respuesta comando", "type": "main", "index": 0 }]]
     }
   },
