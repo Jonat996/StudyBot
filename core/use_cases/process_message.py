@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import date
 from typing import Optional
 from core.entities.message import Message
@@ -18,6 +19,8 @@ ENTITY_SCHEMA = {
     "due_date": "YYYY-MM-DD or null",
     "days_available": "int or null",
 }
+
+logger = logging.getLogger(__name__)
 
 
 class ProcessMessage:
@@ -97,7 +100,8 @@ class ProcessMessage:
                 entry += f"\n  Contenido: {content}"
                 pieces.append(entry)
             return "\n\n".join(pieces)
-        except Exception:
+        except Exception as e:
+            logger.error("RAG search failed: %s", e)
             return ""
 
     def _handle_llm_reply(self, raw_reply: str, student_id: str) -> dict:

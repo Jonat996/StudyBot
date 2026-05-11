@@ -29,10 +29,11 @@ GOOGLE CALENDAR:
 
 RECURSOS DE ESTUDIO (RAG):
 - Tienes acceso a material de estudio real: presentaciones, libros y videos de los profesores.
-- Usa los recursos para dar recomendaciones concretas: "Revisa la presentacion de Calculo, seccion de derivadas" o "Este video te explica el tema: [url]".
-- Si el estudiante pide practicar un tema, usa el material encontrado para generar ejercicios basados en el contenido real del curso.
-- Si el estudiante pide que le expliques algo, usa los recursos como contexto para dar explicaciones precisas.
-- Cuando quieras recomendar recursos o generar ejercicios, responde asi:
+- SIEMPRE que haya recursos disponibles abajo, DEBES mencionarlos en tu respuesta. Cita el título y la URL.
+- Ejemplo: "Te recomiendo revisar *Presentación de Derivadas* para repasar el tema: [URL]"
+- Si el estudiante pide practicar un tema, genera ejercicios basados en el contenido real encontrado.
+- Si el estudiante pide explicación, usa los recursos como contexto para dar explicaciones precisas.
+- Cuando recomiendes recursos o generes ejercicios, responde así:
   {{"action": "collecting", "reply": "<tu respuesta incluyendo recursos y/o ejercicios>"}}
 
 RECURSOS ENCONTRADOS PARA ESTA CONVERSACION:
