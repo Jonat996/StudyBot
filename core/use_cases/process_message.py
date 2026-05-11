@@ -126,12 +126,23 @@ class ProcessMessage:
 
     def _handle_llm_reply(self, raw_reply: str, student_id: str) -> dict:
         try:
-            start = raw_reply.find("{")
-            end = raw_reply.rfind("}") + 1
+            # Strip markdown code fences that LLMs sometimes wrap around JSON
+            cleaned = raw_reply.strip()
+            if cleaned.startswith("```"):
+                # Remove opening fence (```json or ```)
+                first_newline = cleaned.find("\n")
+                if first_newline != -1:
+                    cleaned = cleaned[first_newline + 1:]
+                # Remove closing fence
+                if cleaned.rstrip().endswith("```"):
+                    cleaned = cleaned.rstrip()[:-3].rstrip()
+
+            start = cleaned.find("{")
+            end = cleaned.rfind("}") + 1
             if start == -1:
                 return {"action": "collecting", "reply": raw_reply}
 
-            payload = json.loads(raw_reply[start:end])
+            payload = json.loads(cleaned[start:end])
             action = payload.get("action", "collecting")
 
             if action != PLAN_ACTION:

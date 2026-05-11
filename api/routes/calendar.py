@@ -4,6 +4,7 @@ from infrastructure.database.supabase_client import get_supabase_client
 from datetime import datetime, timezone
 import requests as http_requests
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -66,11 +67,21 @@ def calendar_callback():
 @bp_calendar.post("/api/calendar/events")
 def create_calendar_events():
     data = request.json or {}
+    logger.info("=== /api/calendar/events called ===")
+    logger.info("Raw request body: %s", data)
+
     student_id = data.get("student_id")
     slots = data.get("schedule", {})
     available_schedule = data.get("available_schedule", {})
 
+    logger.info("student_id=%s | schedule type=%s keys=%s | available_schedule type=%s keys=%s",
+                student_id,
+                type(slots).__name__, list(slots.keys()) if isinstance(slots, dict) else "N/A",
+                type(available_schedule).__name__,
+                list(available_schedule.keys()) if isinstance(available_schedule, dict) else "N/A")
+
     if not student_id or not slots:
+        logger.warning("Validation failed: student_id=%s, slots empty=%s", student_id, not slots)
         return jsonify({"error": "student_id and schedule required"}), 400
 
     try:
@@ -83,18 +94,29 @@ def create_calendar_events():
             .execute()
 
         if not result.data:
+            logger.warning("No google_tokens found for student %s — calendar not connected", student_id)
             return jsonify({
                 "error": "calendar_not_connected",
                 "message": "El estudiante no ha conectado su Google Calendar",
             }), 404
 
         tokens = result.data[0]
+        logger.info("Found google_tokens for student %s: access_token=%s... refresh_token=%s expires_at=%s",
+                     student_id,
+                     tokens.get("access_token", "")[:20] if tokens.get("access_token") else "NONE",
+                     "present" if tokens.get("refresh_token") else "MISSING",
+                     tokens.get("expires_at"))
+
+        logger.info("Calling create_events with slots_by_day=%s", slots)
+        logger.info("available_schedule=%s", available_schedule)
+
         count = create_events(tokens, slots, settings, available_schedule)
-        logger.info("Created %d calendar events for student %s", count, student_id)
+        logger.info("SUCCESS: Created %d calendar events for student %s", count, student_id)
         return jsonify({"events_created": count, "student_id": student_id})
 
     except Exception as e:
-        logger.error("Calendar events failed for student %s: %s", student_id, e, exc_info=True)
+        logger.error("FAILED: Calendar events for student %s: %s\n%s",
+                     student_id, e, traceback.format_exc())
         return jsonify({"error": str(e)}), 500
 
 

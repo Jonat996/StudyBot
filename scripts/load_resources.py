@@ -140,43 +140,61 @@ def get_playlist_video_ids(url: str) -> list[str]:
         return []
 
 
-def process_video(url: str, context: str = "") -> list[dict]:
-    """Get YouTube transcript and create resource chunks."""
+def process_video(url: str, context: str = "", title: str = "") -> list[dict]:
+    """Get YouTube transcript and create resource chunks.
+
+    If transcript extraction fails (e.g. channel URLs, non-video links),
+    a single fallback resource is created with the video title/URL so the
+    RAG system can still recommend the link.
+    """
     video_id = extract_video_id(url)
+    subject = context if context else "General"
+    display_title = title if title else subject
+
     if not video_id:
-        print(f"    No se pudo extraer video ID de: {url}")
-        return []
+        # Non-video URL (channel, Khan Academy, etc.) — create stub entry
+        print(f"    No se pudo extraer video ID de: {url} — creando entrada sin transcripcion")
+        return [{
+            "title": f"Video: {display_title}",
+            "subject": subject,
+            "topics": [],
+            "content": f"Video tutorial sobre {subject}: {display_title}. URL: {url}",
+            "resource_type": "video",
+            "url": url,
+            "source_file": None,
+        }]
 
     print(f"  Procesando video: {video_id}")
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        # Try Spanish first, then English, then any
-        try:
-            transcript = transcript_list.find_transcript(['es'])
-        except Exception:
-            try:
-                transcript = transcript_list.find_transcript(['en'])
-            except Exception:
-                transcript = transcript_list.find_generated_transcript(['es', 'en'])
+        # youtube-transcript-api v1.0+ uses instance-based API
+        ytt_api = YouTubeTranscriptApi()
+        transcript = ytt_api.fetch(video_id, languages=['es', 'en'])
 
-        entries = transcript.fetch()
         full_text = " ".join(
-            entry.get("text", entry) if isinstance(entry, dict) else str(entry)
-            for entry in entries
+            snippet.text if hasattr(snippet, 'text') else
+            (snippet.get("text", str(snippet)) if isinstance(snippet, dict) else str(snippet))
+            for snippet in transcript
         )
 
         if not full_text.strip():
             print(f"    Transcripcion vacia para {video_id}")
-            return []
+            return [{
+                "title": f"Video: {display_title}",
+                "subject": subject,
+                "topics": [],
+                "content": f"Video tutorial sobre {subject}: {display_title}. URL: https://www.youtube.com/watch?v={video_id}",
+                "resource_type": "video",
+                "url": f"https://www.youtube.com/watch?v={video_id}",
+                "source_file": None,
+            }]
 
         chunks = chunk_text(full_text)
         print(f"    {len(chunks)} chunks generados")
 
-        subject = context if context else "General"
         resources = []
         for i, chunk in enumerate(chunks):
             resources.append({
-                "title": f"Video: {subject} (parte {i + 1})",
+                "title": f"Video: {display_title} (parte {i + 1})",
                 "subject": subject,
                 "topics": [],
                 "content": chunk,
@@ -187,8 +205,16 @@ def process_video(url: str, context: str = "") -> list[dict]:
         return resources
 
     except Exception as e:
-        print(f"    Error obteniendo transcripcion de {video_id}: {e}")
-        return []
+        print(f"    Error obteniendo transcripcion de {video_id}: {e} — creando entrada sin transcripcion")
+        return [{
+            "title": f"Video: {display_title}",
+            "subject": subject,
+            "topics": [],
+            "content": f"Video tutorial sobre {subject}: {display_title}. URL: https://www.youtube.com/watch?v={video_id}",
+            "resource_type": "video",
+            "url": f"https://www.youtube.com/watch?v={video_id}",
+            "source_file": None,
+        }]
 
 
 def upload_resources(resources: list[dict]):
@@ -231,6 +257,11 @@ def upload_resources(resources: list[dict]):
 
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--only-videos", action="store_true", help="Skip PDFs, only load videos")
+    args = parser.parse_args()
+
     print("=" * 60)
     print("StudyBot - Carga de recursos")
     print("=" * 60)
@@ -239,7 +270,9 @@ def main():
 
     # 1. Process PDFs (supports subdirectories as subject names)
     pdf_dir = os.path.join(os.path.dirname(__file__), "..", "resources", "pdfs")
-    if os.path.exists(pdf_dir):
+    if args.only_videos:
+        print("\n⏭️  Saltando PDFs (--only-videos)")
+    elif os.path.exists(pdf_dir):
         pdf_files = []
         # Walk through subdirectories
         for root, dirs, files in os.walk(pdf_dir):
@@ -262,8 +295,8 @@ def main():
     csv_file = os.path.join(os.path.dirname(__file__), "..", "resources", "tutoriales_apoyo.csv")
     videos_file = os.path.join(os.path.dirname(__file__), "..", "resources", "videos.txt")
 
+    import csv
     if os.path.exists(csv_file):
-        import csv
         print(f"\n🎥 Procesando videos desde CSV", flush=True)
         with open(csv_file, "r", encoding="utf-8") as f:
             reader = csv.DictReader(f)
@@ -282,6 +315,29 @@ def main():
                 else:
                     resources = process_video(url, category)
                     all_resources.extend(resources)
+    # 2b. Process YouTube videos from EDO CSV (different column format)
+    csv_edo_file = os.path.join(os.path.dirname(__file__), "..", "resources", "tutoriales_apoyo_edo.csv")
+    if os.path.exists(csv_edo_file):
+        print(f"\n🎥 Procesando videos desde CSV EDO", flush=True)
+        with open(csv_edo_file, "r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                category = row.get("tema", "General").strip()
+                url = row.get("url", "").strip()
+                video_title = row.get("titulo", "").strip()
+                if not url:
+                    continue
+                if "playlist" in url.lower() or "list=" in url:
+                    print(f"  Playlist detectada ({category}): {url}", flush=True)
+                    video_ids = get_playlist_video_ids(url)
+                    for vid in video_ids:
+                        vid_url = f"https://www.youtube.com/watch?v={vid}"
+                        resources = process_video(vid_url, category, video_title)
+                        all_resources.extend(resources)
+                else:
+                    resources = process_video(url, category, video_title)
+                    all_resources.extend(resources)
+
     elif os.path.exists(videos_file):
         print(f"\n🎥 Procesando videos de YouTube")
         current_context = ""

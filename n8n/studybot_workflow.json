@@ -204,7 +204,7 @@
       "parameters": {
         "chatId": "={{ $('Extraer mensaje').item.json.telegram_id }}",
         "text": "={{ $json.reply }}",
-        "additionalFields": { "parse_mode": "Markdown" }
+        "additionalFields": {}
       },
       "type": "n8n-nodes-base.telegram",
       "typeVersion": 1.2,
