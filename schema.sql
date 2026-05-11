@@ -57,6 +57,14 @@ CREATE TABLE resources (
   created_at        timestamptz DEFAULT now()
 );
 
+CREATE TABLE google_tokens (
+  student_id    uuid PRIMARY KEY REFERENCES students(id) ON DELETE CASCADE,
+  access_token  text NOT NULL,
+  refresh_token text,
+  expires_at    text,
+  updated_at    timestamptz DEFAULT now()
+);
+
 -- Función para búsqueda vectorial (pgvector)
 CREATE OR REPLACE FUNCTION match_resources(
   query_embedding vector(768),
@@ -64,12 +72,13 @@ CREATE OR REPLACE FUNCTION match_resources(
   filter          jsonb DEFAULT '{}'
 )
 RETURNS TABLE (
-  id            uuid,
-  title         text,
-  content       text,
-  subject       text,
-  url           text,
-  similarity    float
+  id              uuid,
+  title           text,
+  content         text,
+  subject         text,
+  url             text,
+  resource_type   text,
+  similarity      float
 )
 LANGUAGE plpgsql
 AS $$
@@ -81,6 +90,7 @@ BEGIN
     r.content,
     r.subject,
     r.url,
+    r.resource_type,
     1 - (r.embedding <=> query_embedding) AS similarity
   FROM resources r
   ORDER BY r.embedding <=> query_embedding

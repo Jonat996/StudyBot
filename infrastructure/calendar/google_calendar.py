@@ -58,12 +58,21 @@ def create_events(tokens: dict, slots_by_day: dict, settings,
             {"monday": {"start": "17:00", "end": "21:00"}, "tuesday": {"start": "14:00", "end": "20:00"}}
             Falls back to 14:00-20:00 if not provided.
     """
+    from datetime import datetime as dt_cls
+    expiry = None
+    if tokens.get('expires_at'):
+        try:
+            expiry = dt_cls.fromisoformat(tokens['expires_at'])
+        except (ValueError, TypeError):
+            pass
+
     creds = Credentials(
         token=tokens['access_token'],
         refresh_token=tokens.get('refresh_token'),
         token_uri="https://oauth2.googleapis.com/token",
         client_id=settings.google_client_id,
         client_secret=settings.google_client_secret,
+        expiry=expiry,
     )
     service = build('calendar', 'v3', credentials=creds)
 
