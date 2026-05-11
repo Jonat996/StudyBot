@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import date
+from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 from core.entities.message import Message
 from core.entities.task import Task
@@ -74,7 +74,27 @@ class ProcessMessage:
 
     def _build_system_prompt(self, profile_context: str, long_term_memory: str, resources_context: str = "") -> str:
         from infrastructure.llm.gemini_provider import STUDYBOT_SYSTEM_PROMPT
+
+        # Current datetime in Bogota timezone (UTC-5)
+        bogota_tz = timezone(timedelta(hours=-5))
+        now_bogota = datetime.now(bogota_tz)
+        day_names_es = {
+            0: "lunes", 1: "martes", 2: "miércoles",
+            3: "jueves", 4: "viernes", 5: "sábado", 6: "domingo",
+        }
+        month_names_es = {
+            1: "enero", 2: "febrero", 3: "marzo", 4: "abril",
+            5: "mayo", 6: "junio", 7: "julio", 8: "agosto",
+            9: "septiembre", 10: "octubre", 11: "noviembre", 12: "diciembre",
+        }
+        current_datetime = (
+            f"{day_names_es[now_bogota.weekday()]} {now_bogota.day} de "
+            f"{month_names_es[now_bogota.month]} de {now_bogota.year}, "
+            f"{now_bogota.strftime('%I:%M %p')} (hora Colombia)"
+        )
+
         return STUDYBOT_SYSTEM_PROMPT.format(
+            current_datetime=current_datetime,
             profile=profile_context,
             long_term_memory=long_term_memory or "Sin conversaciones anteriores.",
             resources=resources_context or "No se encontraron recursos relevantes para este mensaje.",
